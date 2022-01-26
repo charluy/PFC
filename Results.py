@@ -23,7 +23,8 @@ def initialSinrGenerator(n_ues,refValue):
 class UEgroup:
     """This class is used to describe traffic profile and requirements of group of UE which the simulation will run for.
     It is assumed that all UEs shares the same traffic profile and service requirements, and will be served by the same slice."""
-    def __init__(self,nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mmMd,lyrs,cell,t_sim,measInterv,env,sinr):
+    def __init__(self,UEg_dir,nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mmMd,lyrs,cell,t_sim,measInterv,env):
+        self.UEgroup_dir = UEg_dir
         self.num_usersDL = nuDL
         self.num_usersUL = nuUL
         self.p_sizeDL = pszDL

@@ -56,22 +56,27 @@ interSliceSche1 = cell1.interSliceSched
 #UEgroup1 = UEgroup(0,5,0,150,0,60,'m-MTC-2',10,'','RR','',1,cell1,t_sim,measInterv,env,'D37')
 #UEgroup1 = UEgroup(0,4,0,2000,0,5000,'eMBB-1',20,'','','',1,cell1,t_sim,measInterv,env,'S25')
 #UEgroup2 = UEgroup(0,15,0,350,0,10,'eMBB-2',20,'','PF11','',1,cell1,t_sim,measInterv,env,'S20')
-UEgroup2 = UEgroup(0,10,0,350,0,6000,'mMTC-1',20,'','RR','',1,cell1,t_sim,measInterv,env,'S5')
+# UEgroup2 = UEgroup(0,10,0,350,0,6000,'mMTC-1',20,'','RR','',1,cell1,t_sim,measInterv,env,'S5')
 #UEgroup3 = UEgroup(0,8,0,1500,0,6,'URLLC-1',5,'','PF11','',1,cell1,t_sim,measInterv,env,'S25')
-# UEgroup1 = UEgroup(3,0,10000,0,2,0,'LTE',20,'','RR','',1,cell1,t_sim,measInterv,env,'S37')
-UEgroup1 = UEgroup(3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,'S37')
+#UEgroup1 = UEgroup(3,0,10000,0,2,0,'LTE',20,'','RR','',1,cell1,t_sim,measInterv,env,'S37')
+# UEgroup1 = UEgroup(3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,'S37')
+
+scenario_dir = "scenarios/I2_28B/"
+
+UEgroup_test = UEgroup(scenario_dir + "UEgroup_test_1",3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env)
+
 """Group of users with defined traffic profile, capabilities and service requirements for which the sumulation will run.
 
 More than one can be instantiated in one simulation.
 For each one of them, the UEgroup instance must be added in the UEgroups list.
 
-UEgroupN = UEgroup(nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mimo_mode,layers,cell,hdr,t_sim,measInterv,env,sinr):
+UEgroupN = UEgroup(UEg_dir,nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mimo_mode,layers,cell,hdr,t_sim,measInterv,env):
 
+UEg_dir: directory of UEgroup channel information files
 label: must contain substring according to the type of service: eMBB, mMTC, URLLC\n
 schedulerType: RR: Rounf Robin, PF: Proportional Fair (10, 11)\n
 mimo_mode: SU, MU\n
 layers: in SU-MIMO is the number of layers/UE, in MU-MIMO is the number of simultaneous UE to serve with the same resources\n
-sinr: is a string starting starting with S if all ues have the same sinr or D if not. The value next will be the initial sinr of each ue or the maximum."""
 
 #UEgroup2 = UEgroup(3,3,800000,300,1,10,'eMBB-1',10,'','RR','',1,cell1,t_sim,measInterv,env,'D37')
 
