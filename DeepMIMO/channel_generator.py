@@ -49,7 +49,7 @@ pp.pprint(parameters)
 # Generate data
 dataset = DeepMIMO.generate_data(parameters)
 
-try:
+try: #
     os.mkdir(out_dir)
 except:
     pass
