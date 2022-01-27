@@ -11,7 +11,6 @@ import os
 scenario_name = "I2_28B"
 out_dir = "../scenarios/I2_28B/"
 cant_bs = 1 # Number of base station in DeepMIMO selected scenario
-cant_ue = 10 # Number of users in DeepMIMO selected scenario
 cant_sc = 512
 TX_power = (10**(-1))*512
 TX_power_sc = float(TX_power)/cant_sc
@@ -62,6 +61,7 @@ for idUEg, UEg in enumerate(UEgroups):
         pass
     first_ue = UEg[0]
     last_ue = UEg[1]
+    cant_ue = last_ue-first_ue+1 # Numbers of UE in the UEgroup
 
     RX_ant = 0
     TX_ant = 0

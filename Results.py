@@ -44,7 +44,7 @@ class UEgroup:
         self.mmMd = mmMd
         self.lyrs = lyrs
         self.setReq(dly,avlty)
-        self.setInitialSINR(sinr)
+        self.setInitialSINR()
         self.gr = cell.interSliceSched.granularity
         """Inter Slice scheduler time granularity"""
         self.mgr = measInterv
@@ -63,12 +63,20 @@ class UEgroup:
         self.req['reqThroughputUL'] = 8*self.p_sizeUL*self.p_arr_rateUL
         self.req['reqAvailability'] = avl
 
-    def setInitialSINR(self,sinr):
+    def setInitialSINR(self):
         """This method sets the initial SINR value"""
         if self.num_usersDL>0:
             self.sinr_0DL = initialSinrGenerator(self.num_usersDL,sinr)
         if self.num_usersUL>0:
             self.sinr_0UL = initialSinrGenerator(self.num_usersUL,sinr)
+    
+    def readSINR(self, time=0, cantUE):
+        """This method returns a list containing SINRs of UEgroup at moment=time"""
+        SINRs = []
+        
+
+        
+        return SINRs
 
     def initializeUEs(self,dir,num_users,p_size,p_arr_rate,sinr_0,cell,t_sim,measInterv,env):
         """This method creates the UEs with its traffic flows, and initializes the asociated PEM methods"""

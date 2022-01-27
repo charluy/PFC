@@ -76,7 +76,7 @@ UEg_dir: directory of UEgroup channel information files
 label: must contain substring according to the type of service: eMBB, mMTC, URLLC\n
 schedulerType: RR: Rounf Robin, PF: Proportional Fair (10, 11)\n
 mimo_mode: SU, MU\n
-layers: in SU-MIMO is the number of layers/UE, in MU-MIMO is the number of simultaneous UE to serve with the same resources\n
+layers: in SU-MIMO is the number of layers/UE, in MU-MIMO is the number of simultaneous UE to serve with the same resources\n"""
 
 #UEgroup2 = UEgroup(3,3,800000,300,1,10,'eMBB-1',10,'','RR','',1,cell1,t_sim,measInterv,env,'D37')
 
