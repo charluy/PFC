@@ -1,0 +1,8 @@
+# Ignore all figures:
+Figures/*.png
+
+# Ignore all logs:
+Logs/*.html
+
+# Ignore all statistics:
+Statistics/*.txt

@@ -5,26 +5,14 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import (AutoMinorLocator, MultipleLocator)
 from UE import *
 from Cell import Format
-
-def initialSinrGenerator(n_ues,refValue):
-    """Auxiliary method for SINR generation.
-    This method is used to generate initial UE SINR. Later, during the simulation SINR will have small variations with time."""
-    genSINRs = []
-    sameSINR = refValue[0] == 'S'
-    value = float(refValue[1:])
-    delta = float(value - 5.0)/n_ues
-    for i in range(n_ues):
-        if sameSINR:
-            genSINRs.append(value)
-        else:
-            genSINRs.append(value-delta*i)
-    return genSINRs
+import numpy as np
 
 class UEgroup:
     """This class is used to describe traffic profile and requirements of group of UE which the simulation will run for.
     It is assumed that all UEs shares the same traffic profile and service requirements, and will be served by the same slice."""
     def __init__(self,UEg_dir,nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mmMd,lyrs,cell,t_sim,measInterv,env):
         self.UEgroup_dir = UEg_dir
+        self.id_ant = cell.id_ant
         self.num_usersDL = nuDL
         self.num_usersUL = nuUL
         self.p_sizeDL = pszDL
@@ -66,17 +54,18 @@ class UEgroup:
     def setInitialSINR(self):
         """This method sets the initial SINR value"""
         if self.num_usersDL>0:
-            self.sinr_0DL = initialSinrGenerator(self.num_usersDL,sinr)
+            self.sinr_0DL = self.readSINR(self.num_usersDL)
         if self.num_usersUL>0:
-            self.sinr_0UL = initialSinrGenerator(self.num_usersUL,sinr)
+            self.sinr_0UL = self.readSINR(self.num_usersUL)
     
-    def readSINR(self, time=0, cantUE):
+    def readSINR(self, cantUE, time=0):
         """This method returns a list containing SINRs of UEgroup at moment=time"""
-        SINRs = []
+        file_name = self.UEgroup_dir + "/SNR_" + str(time) + ".npy"
+        all_SINRs = np.load(file_name, mmap_mode='r')
         
-
+        SINRs_out = all_SINRs[0:cantUE, self.id_ant].tolist()
         
-        return SINRs
+        return SINRs_out
 
     def initializeUEs(self,dir,num_users,p_size,p_arr_rate,sinr_0,cell,t_sim,measInterv,env):
         """This method creates the UEs with its traffic flows, and initializes the asociated PEM methods"""

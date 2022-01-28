@@ -43,7 +43,7 @@ interSliceSchGr = 3000.0 # interSlice scheduler time granularity
 
 env = simpy.Environment()
 """Environment instance needed by simpy for runing PEM methods"""
-cell1 = Cell('c1',bw,fr,debMode,buf,tdd,interSliceSchGr,schedulerInter)
+cell1 = Cell(0,'c1',bw,fr,debMode,buf,tdd,interSliceSchGr,schedulerInter)
 """Cell instance for running the simulation"""
 interSliceSche1 = cell1.interSliceSched
 """interSliceScheduler instance"""
@@ -63,7 +63,7 @@ interSliceSche1 = cell1.interSliceSched
 
 scenario_dir = "scenarios/I2_28B/"
 
-UEgroup_test = UEgroup(scenario_dir + "UEgroup_test_1",3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env)
+UEgroup0 = UEgroup(scenario_dir + "UEgroup_0",3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env)
 
 """Group of users with defined traffic profile, capabilities and service requirements for which the sumulation will run.
 
@@ -81,7 +81,7 @@ layers: in SU-MIMO is the number of layers/UE, in MU-MIMO is the number of simul
 #UEgroup2 = UEgroup(3,3,800000,300,1,10,'eMBB-1',10,'','RR','',1,cell1,t_sim,measInterv,env,'D37')
 
 # Set UEgroups list according to the defined groups!!!
-UEgroups = [UEgroup1,UEgroup2]#,UEgroup3]#,UEgroup4]
+UEgroups = [UEgroup0]#,UEgroup2]#,UEgroup3]#,UEgroup4]
 """UE group list for the configured simulation"""
 #           Slices creation
 for ueG in UEgroups:
