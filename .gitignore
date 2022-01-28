@@ -6,3 +6,6 @@ Logs/*.html
 
 # Ignore all statistics:
 Statistics/*.txt
+
+# Ignore Pychache:
+__pycache__
