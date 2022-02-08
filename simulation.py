@@ -4,6 +4,7 @@ Simulation, cell and traffic profile parameters can be set here.
 import os
 import sys
 import simpy
+import json
 from UE import *
 from Cell import *
 from Results import *
@@ -12,9 +13,15 @@ from Results import *
 #              Cell & Simulation parameters
 #------------------------------------------------------------------------------------------------------
 
-bw = [10]# MHz (FR1: 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 90, 100; FR2: 50, 100, 200, 400)
+scenario_dir = "scenarios/I2_28B/"
+
+general_config = json.load(open(scenario_dir + 'config.json'))
+bandwidth = general_config["bandwidth"]
+center_freq = general_config["center_freq"]
+
+bw = [bandwidth] # MHz (FR1: 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 90, 100; FR2: 50, 100, 200, 400)
 """List containing each CC's bandwidth for the simulation. """
-fr = 'FR1' # FR1 or FR2
+fr = 'FR1' if (center_freq < 6) else 'FR1'  # TODO: FR1 or FR2
 """String with frequency range (FR) to use. 'FR1' for FR1, or 'FR2' for FR2."""
 band = 'B1'
 """String with used band for simulation. In TDD mode it is important to set correctly a band from the next list: n257, n258, n260, n261."""
@@ -60,8 +67,6 @@ interSliceSche1 = cell1.interSliceSched
 #UEgroup3 = UEgroup(0,8,0,1500,0,6,'URLLC-1',5,'','PF11','',1,cell1,t_sim,measInterv,env,'S25')
 #UEgroup1 = UEgroup(3,0,10000,0,2,0,'LTE',20,'','RR','',1,cell1,t_sim,measInterv,env,'S37')
 # UEgroup1 = UEgroup(3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,'S37')
-
-scenario_dir = "scenarios/I2_28B/"
 
 UEgroup0 = UEgroup(scenario_dir + "UEgroup_0",3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env)
 
