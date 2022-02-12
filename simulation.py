@@ -17,7 +17,14 @@ scenario_dir = "scenarios/I2_28B/"
 
 general_config = json.load(open(scenario_dir + 'config.json'))
 bandwidth = general_config["bandwidth"]
-center_freq = general_config["center_freq"]
+center_freq = general_config["frecuency"]
+is_dynamic = general_config["is_dynamic"]
+scene_duration = general_config["refresh_rate"]
+t_sim_file = general_config["sim_duration"]
+
+t_sim_default = 60000 # (ms)
+t_sim = t_sim_file if is_dynamic else t_sim_default
+"""Simulation duration in milliseconds."""
 
 bw = [bandwidth] # MHz (FR1: 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 90, 100; FR2: 50, 100, 200, 400)
 """List containing each CC's bandwidth for the simulation. """
@@ -34,8 +41,7 @@ schedulerInter = 'PF11'# RRp for improved Round Robin, PFXX for Proportional Fai
 If the simulation includes more than one slice, set '' for Round Robin, 'RRp' for Round Robin Plus,
 or 'PFXY' for Proportional Fair with X=numExp and Y=denExp."""
 #                   Simulation parameters
-t_sim = 60000 # (ms)
-"""Simulation duration in milliseconds."""
+
 debMode = True # to show queues information by TTI during simulation
 """Boolean indicating if debugging mode is active. In that case, an html log file will be generated with schedulers operation.
 Note that in simulations with a high number of UEs this file can turn quite heavy."""
@@ -68,20 +74,22 @@ interSliceSche1 = cell1.interSliceSched
 #UEgroup1 = UEgroup(3,0,10000,0,2,0,'LTE',20,'','RR','',1,cell1,t_sim,measInterv,env,'S37')
 # UEgroup1 = UEgroup(3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,'S37')
 
-UEgroup0 = UEgroup(scenario_dir + "UEgroup_0",3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env)
+UEgroup0 = UEgroup(scenario_dir + "UEgroup_0",3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,is_dynamic,scene_duration)
 
 """Group of users with defined traffic profile, capabilities and service requirements for which the sumulation will run.
 
 More than one can be instantiated in one simulation.
 For each one of them, the UEgroup instance must be added in the UEgroups list.
 
-UEgroupN = UEgroup(UEg_dir,nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mimo_mode,layers,cell,hdr,t_sim,measInterv,env):
+UEgroupN = UEgroup(UEg_dir,nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mimo_mode,layers,cell,hdr,t_sim,measInterv,env,is_dynamic,scene_duration):
 
 UEg_dir: directory of UEgroup channel information files
 label: must contain substring according to the type of service: eMBB, mMTC, URLLC\n
 schedulerType: RR: Rounf Robin, PF: Proportional Fair (10, 11)\n
 mimo_mode: SU, MU\n
-layers: in SU-MIMO is the number of layers/UE, in MU-MIMO is the number of simultaneous UE to serve with the same resources\n"""
+layers: in SU-MIMO is the number of layers/UE, in MU-MIMO is the number of simultaneous UE to serve with the same resources\n
+is_dynamic: True if the scenario is dynamic
+scene_duration: time between consecutive scenes in dynamic scenarios"""
 
 #UEgroup2 = UEgroup(3,3,800000,300,1,10,'eMBB-1',10,'','RR','',1,cell1,t_sim,measInterv,env,'D37')
 

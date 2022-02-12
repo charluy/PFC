@@ -10,9 +10,13 @@ import numpy as np
 class UEgroup:
     """This class is used to describe traffic profile and requirements of group of UE which the simulation will run for.
     It is assumed that all UEs shares the same traffic profile and service requirements, and will be served by the same slice."""
-    def __init__(self,UEg_dir,nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mmMd,lyrs,cell,t_sim,measInterv,env):
+    def __init__(self,UEg_dir,nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mmMd,lyrs,cell,t_sim,measInterv,env,is_dynamic,scene_duration):
         self.UEgroup_dir = UEg_dir
         self.id_ant = cell.id_ant
+        self.current_scene = 1
+        self.is_dynamic = is_dynamic
+        self.scene_duration = scene_duration
+
         self.num_usersDL = nuDL
         self.num_usersUL = nuUL
         self.p_sizeDL = pszDL
@@ -73,7 +77,6 @@ class UEgroup:
         flows = []
         procFlow = []
         procUE = []
-        procRL = []
         for j in range (num_users):
             ue_name = 'ue'+str(j+1)#+'-'+self.label
             users.append(UE(ue_name,float(sinr_0[j]),0,20))
@@ -83,8 +86,23 @@ class UEgroup:
             # Flow, UE and RL PEM activation
             procFlow.append(env.process(users[j].packetFlows[0].queueAppPckt(env,tSim=t_sim)))
             procUE.append(env.process(users[j].receivePckt(env,c=cell)))
-            procRL.append(env.process(users[j].radioLinks.updateLQ(env,udIntrv=measInterv,tSim=t_sim,fl=False,u=num_users,r='')))
+        if self.is_dynamic:
+            env.process(self.updateUEgRL(env, t_sim))
         return users,flows
+
+    def updateUEgRL(self, env, tSim):
+        """This PEM method updates all UE's radio link quality in the group"""
+        nuser = max(self.num_usersDL, self.num_usersUL)
+        while env.now<(tSim*0.83):
+            yield env.timeout(self.scene_duration)
+            snrs = self.readSINR(cantUE=nuser, time=self.current_scene)
+            if self.num_usersDL>0:
+                for i, usr in enumerate(self.usersDL):
+                    usr.radioLinks.updateLQ(snrs[i])
+            if self.num_usersUL>0:
+                for i, usr in enumerate(self.usersUL):
+                    usr.radioLinks.updateLQ(snrs[i])
+            self.current_scene = self.current_scene + 1
 
     def activateSliceScheds(self,interSliceSche,env):
         """This method activates PEM methods from the intra Slice schedulers"""
