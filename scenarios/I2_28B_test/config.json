@@ -1,0 +1,14 @@
+{
+    "frecuency": 28,
+    "bandwidth": 50,
+    "n_sc": 512,
+    "is_dynamic": false,
+    "refresh_rate": 0,
+    "sim_duration": 0,
+    "n_ueg": 2,
+    "base_stations": [
+        {
+            "id": 0
+        }
+    ]
+}
