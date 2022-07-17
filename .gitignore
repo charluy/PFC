@@ -9,3 +9,6 @@ Statistics/*.txt
 
 # Ignore Pychache:
 __pycache__
+
+# Jupyter notebook checkpoints:
+*.ipynb_checkpoints
