@@ -3,12 +3,13 @@
 #   - https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html
 #   - https://medium.com/@nrk25693/how-to-add-your-conda-environment-to-your-jupyter-notebook-in-just-4-steps-abeab8b8d084
 
+from turtle import position
 import DeepMIMO
 import pprint
 import json
 import numpy as np
 import os
-import aux_channel_functions
+from aux_channel_functions import UE
 
 
 
@@ -100,9 +101,6 @@ with open(out_dir + "config.json", "w") as outfile:
 
 # Create UEgroups channel information files for each scene
 
-print("the range is ")
-print(range(0, cant_scenes - 1))
-
 for scene in range(0, cant_scenes):
     print("the scene is "  +  str(scene))
     for idUEg, UEg in enumerate(UEgroups):
@@ -118,17 +116,21 @@ for scene in range(0, cant_scenes):
         RX_ant = 0
         TX_ant = 0
         SNR = np.zeros(shape = (cant_ue, cant_bs))
-        for bs in range(0,cant_bs):
-            for ue in range(first_ue, last_ue+1):
 
-                if is_dynamic_UE(ue, dyn_UE_positions):
-                    # List containing channel magnitude response in each OFDM sub-carrier:
-                    if (item for item in dyn_UE_positions if item["type_of_movement"] == ue)["type_of_movement"] == 'vertical':
-                        info = np.absolute(dataset[bs]['user']['channel'][ue + 201*scene][RX_ant][TX_ant])
-                    if (item for item in dyn_UE_positions if item["type_of_movement"] == ue)["type_of_movement"] == 'horizontal':
-                        info = np.absolute(dataset[bs]['user']['channel'][ue + scene][RX_ant][TX_ant])
-                else:
-                    info = np.absolute(dataset[bs]['user']['channel'][ue][RX_ant][TX_ant])
+        # Create the UEs for each UE group
+        UEs = []
+
+        for ue in range(first_ue, last_ue):
+            user = UE(idUEg, ue)
+            UEs.append(user)
+
+        UEs[3].is_dynamic = True
+        UEs[3].speed = 5
+
+        for bs in range(0,cant_bs):
+            for ue in UEs:
+
+                info = np.absolute(dataset[bs]['user']['channel'][ue.position][RX_ant][TX_ant])
 
                 # Plot Channel magnitud response por portadora OFDM:
                 # print(info.shape)
@@ -140,7 +142,15 @@ for scene in range(0, cant_scenes):
                 pot_senal = 0
                 for subp in range(0,512):
                     pot_senal += TX_power_sc * (info[subp]**2)
-                SNR[ue-first_ue][bs] = pot_senal / (N_0 * B)
+                SNR[ue.position-first_ue][bs] = pot_senal / (N_0 * B)
+
+                ue.switch_position(scene + 1, 100000, 201)
+
+                if ue.is_dynamic:
+                    print ("it is dynamic")
+                    # print ("has a speed of")
+                    # print (ue.speed)
+                    print(ue.position)
 
                 
         np.save(UEg_out_dir + "/SNR_" + str(scene), SNR)
