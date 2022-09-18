@@ -57,8 +57,8 @@ parameters['OFDM']['subcarriers_limit'] = 512
 parameters['OFDM']['subcarriers_sampling'] = 1
 
 # Ponemos una antena en TX y una también en RX
-parameters['bs_antenna']['shape'] = np.array([1,1,1])
-parameters['ue_antenna']['shape'] = np.array([1,1,1])
+parameters['bs_antenna']['shape'] = np.array([1,5,1])
+parameters['ue_antenna']['shape'] = np.array([1,2,1])
 
 # We define the amount of rows to be used in this case being more than 201 because we have more than 2 rows
 parameters['user_row_first'] = 1
@@ -99,6 +99,11 @@ conf_dict = {
 with open(out_dir + "config.json", "w") as outfile:
     json.dump(conf_dict, outfile, indent=4)
 
+# Create PRBs associated to the subcarriers
+
+PRBs = [range(0, cant_sc)[i * 12:(i + 1) * 12] for i in range((cant_sc + 12 - 1) // 12 )]
+# print (PRBs)
+
 # Create UEgroups channel information files for each scene
 
 for scene in range(0, cant_scenes):
@@ -113,9 +118,10 @@ for scene in range(0, cant_scenes):
         last_ue = UEg[1]
         cant_ue = last_ue - first_ue + 1 # Numbers of UE in the UEgroup
 
-        RX_ant = 0
-        TX_ant = 0
-        SNR = np.zeros(shape = (cant_ue, cant_bs))
+        # RX_ant = 0
+        # TX_ant = 0
+        SNR = np.zeros(shape = (cant_ue, len(PRBs), cant_bs))
+        rank = np.zeros(shape = (cant_ue, len(PRBs), cant_bs))
 
         # Create the UEs for each UE group
         UEs = []
@@ -130,8 +136,9 @@ for scene in range(0, cant_scenes):
         for bs in range(0,cant_bs):
             for ue in UEs:
 
-                info = np.absolute(dataset[bs]['user']['channel'][ue.position][RX_ant][TX_ant])
+                # info = np.absolute(dataset[bs]['user']['channel'][ue.position][RX_ant][TX_ant])
 
+                info = np.absolute(dataset[bs]['user']['channel'][ue.position])
                 # Plot Channel magnitud response por portadora OFDM:
                 # print(info.shape)
 
@@ -140,20 +147,28 @@ for scene in range(0, cant_scenes):
                 N_0 = abs(10**(-16)*np.random.randn()) # Nivel de ruido 
                 B = parameters['OFDM']['bandwidth'] * (10**9) # Ancho de banda del canal OFDM
                 pot_senal = 0
-                for subp in range(0,512):
-                    pot_senal += TX_power_sc * (info[subp]**2)
-                SNR[ue.position-first_ue][bs] = pot_senal / (N_0 * B)
+                for PRB in PRBs:
+                    rank[ue.position-first_ue][PRBs.index(PRB)][bs], antenna_comb = ue.best_rank(info[:, :, PRB], 10)
+                    for subp in PRB:
+                        pot_senal += TX_power_sc * (info[0:2, antenna_comb, subp]**2)
+                        # print(pot_senal.shape)
+                    SNR[ue.position-first_ue][PRBs.index(PRB)][bs] = np.min(np.diagonal(pot_senal / (N_0 * B/len(PRBs))))
+
+                print("Has rank greater or equal than 2")
+                print(ue.has_at_least_one_prb_with_rank_2(rank[ue.position-first_ue]))
 
                 ue.switch_position(scene + 1, 100000, 201)
 
-                if ue.is_dynamic:
-                    print ("it is dynamic")
-                    # print ("has a speed of")
-                    # print (ue.speed)
-                    print(ue.position)
+                # if ue.is_dynamic:
+                #     print ("it is dynamic")
+                #     # print ("has a speed of")
+                #     # print (ue.speed)
+                #     print(ue.position)
 
-                
-        np.save(UEg_out_dir + "/SNR_" + str(scene), SNR)
+        # print("Lets see the info of the SNR obtained")
+        # print(SNR.shape)
+        # print(SNR)        
+        np.savez(UEg_out_dir + "/SNR_" + str(scene), SNR, rank)
         #print(20*np.log(SNR))
 
         
