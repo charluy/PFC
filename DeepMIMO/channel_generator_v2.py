@@ -122,6 +122,7 @@ for scene in range(0, cant_scenes):
         # TX_ant = 0
         SNR = np.zeros(shape = (cant_ue, len(PRBs), cant_bs))
         rank = np.zeros(shape = (cant_ue, len(PRBs), cant_bs))
+        DoA = np.zeros(shape = (cant_ue, cant_bs, 2))
 
         # Create the UEs for each UE group
         UEs = []
@@ -141,6 +142,14 @@ for scene in range(0, cant_scenes):
                 info = np.absolute(dataset[bs]['user']['channel'][ue.position])
                 # Plot Channel magnitud response por portadora OFDM:
                 # print(info.shape)
+
+                # Save DoA
+                DoA[ue.position-first_ue][bs][0] = dataset[bs]['user']['paths'][ue.position]['DoA_phi'][0]
+                DoA[ue.position-first_ue][bs][1] = dataset[bs]['user']['paths'][ue.position]['DoA_theta'][1]
+
+                print ('the shape of the DoA is ')
+                print (DoA[ue.position-first_ue][bs][0].shape)
+
 
                 # Estimate SINR in OFDM carrier:
 
@@ -168,7 +177,7 @@ for scene in range(0, cant_scenes):
         # print("Lets see the info of the SNR obtained")
         # print(SNR.shape)
         # print(SNR)        
-        np.savez(UEg_out_dir + "/SNR_" + str(scene), SNR, rank)
+        np.savez(UEg_out_dir + "/Data_" + str(scene), SNR, rank, DoA)
         #print(20*np.log(SNR))
 
         
