@@ -1,135 +1,13 @@
-"""This module contains auxiliary simulation classes and methods along with results processing."""
+"""
+    This module contains auxiliary simulation classes and methods along with results processing.
+"""
 import os
 import sys
 import matplotlib.pyplot as plt
 from matplotlib.ticker import (AutoMinorLocator, MultipleLocator)
-from UE import *
+# from UE import *
 from Cell import Format
 import numpy as np
-
-class UEgroup:
-    """This class is used to describe traffic profile and requirements of group of UE which the simulation will run for.
-    It is assumed that all UEs shares the same traffic profile and service requirements, and will be served by the same slice."""
-    def __init__(self,UEg_dir,nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mmMd,lyrs,cell,t_sim,measInterv,env,is_dynamic,scene_duration):
-        self.UEgroup_dir = UEg_dir
-        self.id_ant = cell.id_ant
-        self.current_scene = 1
-        self.is_dynamic = is_dynamic
-        self.scene_duration = scene_duration
-
-        self.num_usersDL = nuDL
-        self.num_usersUL = nuUL
-        self.p_sizeDL = pszDL
-        self.p_sizeUL = pszUL
-        self.p_arr_rateDL = parrDL
-        self.p_arr_rateUL = parrUL
-        self.sinr_0DL = 0
-        """Initial sinr value for DL"""
-        self.sinr_0UL = 0
-        """Initial sinr value for UL"""
-        self.sch = schedulerType
-        """Intra Slice scheduler algorithm"""
-        self.label = label
-        """Slice label"""
-        self.req = {}
-        """Dictionary with services requirements"""
-        self.mmMd = mmMd
-        self.lyrs = lyrs
-        self.setReq(dly,avlty)
-        self.setInitialSINR()
-        self.gr = cell.interSliceSched.granularity
-        """Inter Slice scheduler time granularity"""
-        self.mgr = measInterv
-        """Meassurement time granularity"""
-        self.schIn = cell.sch
-        """Inter Slice scheduler algorithm"""
-        if self.num_usersDL>0:
-            self.usersDL,self.flowsDL = self.initializeUEs('DL',self.num_usersDL,self.p_sizeDL,self.p_arr_rateDL,self.sinr_0DL,cell,t_sim,measInterv,env)
-        if self.num_usersUL>0:
-            self.usersUL,self.flowsUL = self.initializeUEs('UL',self.num_usersUL,self.p_sizeUL,self.p_arr_rateUL,self.sinr_0UL,cell,t_sim,measInterv,env)
-
-    def setReq(self,delay,avl):
-        """This method sets the service requirements depending on the UE group traffic profile and required delay"""
-        self.req['reqDelay'] = delay
-        self.req['reqThroughputDL'] = 8*self.p_sizeDL*self.p_arr_rateDL
-        self.req['reqThroughputUL'] = 8*self.p_sizeUL*self.p_arr_rateUL
-        self.req['reqAvailability'] = avl
-
-    def setInitialSINR(self):
-        """This method sets the initial SINR value"""
-        if self.num_usersDL>0:
-            self.sinr_0DL = self.readSINR(self.num_usersDL)
-        if self.num_usersUL>0:
-            self.sinr_0UL = self.readSINR(self.num_usersUL)
-    
-    def readSINR(self, cantUE, time=0):
-        """This method returns a list containing SINRs of UEgroup at moment=time"""
-        file_name = self.UEgroup_dir + "/SNR_" + str(time) + ".npy"
-        all_SINRs = np.load(file_name, mmap_mode='r')
-        
-        SINRs_out = all_SINRs[0:cantUE, self.id_ant].tolist()
-        
-        return SINRs_out
-
-    def initializeUEs(self,dir,num_users,p_size,p_arr_rate,sinr_0,cell,t_sim,measInterv,env):
-        """This method creates the UEs with its traffic flows, and initializes the asociated PEM methods"""
-        users = []
-        flows = []
-        procFlow = []
-        procUE = []
-        for j in range (num_users):
-            ue_name = 'ue'+str(j+1)#+'-'+self.label
-            users.append(UE(ue_name,float(sinr_0[j]),0,20))
-            flows.append(PacketFlow(1,p_size,p_arr_rate,ue_name,dir,self.label))
-            users[j].addPacketFlow(flows[j])
-            users[j].packetFlows[0].setQosFId(1)
-            # Flow, UE and RL PEM activation
-            procFlow.append(env.process(users[j].packetFlows[0].queueAppPckt(env,tSim=t_sim)))
-            procUE.append(env.process(users[j].receivePckt(env,c=cell)))
-        if self.is_dynamic:
-            env.process(self.updateUEgRL(env, t_sim))
-        return users,flows
-
-    def updateUEgRL(self, env, tSim):
-        """This PEM method updates all UE's radio link quality in the group"""
-        nuser = max(self.num_usersDL, self.num_usersUL)
-        while env.now<(tSim*0.83):
-            yield env.timeout(self.scene_duration)
-            snrs = self.readSINR(cantUE=nuser, time=self.current_scene)
-            if self.num_usersDL>0:
-                for i, usr in enumerate(self.usersDL):
-                    usr.radioLinks.updateLQ(snrs[i])
-            if self.num_usersUL>0:
-                for i, usr in enumerate(self.usersUL):
-                    usr.radioLinks.updateLQ(snrs[i])
-            self.current_scene = self.current_scene + 1
-
-    def activateSliceScheds(self,interSliceSche,env):
-        """This method activates PEM methods from the intra Slice schedulers"""
-        if self.num_usersDL>0:
-            procSchDL = env.process(interSliceSche.slices[self.label].schedulerDL.queuesOut(env))
-        if self.num_usersUL>0:
-            procSchUL = env.process(interSliceSche.slices[self.label].schedulerUL.queuesOut(env))
-
-    def printSliceResults(self,interSliceSche,t_sim,bw,measInterv):
-        """This method prints main simulation results on the terminal, gets the considered kpi from the statistic files, and builds kpi plots"""
-        if self.num_usersDL>0:
-            printResults('DL',self.usersDL,self.num_usersDL,interSliceSche.slices[self.label].schedulerDL,t_sim,True,False,self.sinr_0DL)
-            # print('Configured Signalling Load: '+str(interSliceSche.slices[self.label].signLoad))
-            # print('Using Robust MCS: '+str(interSliceSche.slices[self.label].robustMCS))
-            [SINR_DL,times_DL,mcs_DL,rU_DL,plr_DL,th_DL] = getKPIs('DL','Statistics/dlStsts'+'_'+self.label+'.txt',self.usersDL,self.num_usersDL,self.sinr_0DL,measInterv,t_sim)
-            makePlotsIntra('DL',times_DL,SINR_DL,mcs_DL,rU_DL,plr_DL,th_DL,self.label,bw,self.sch,self.mgr)
-            [times_DL,rU_DL,plr_DL,th_DL,cnx_DL,buf_DL,met] = getKPIsInter('DL','Statistics/dlStsts_InterSlice.txt',list(interSliceSche.slices.keys()),len(list(interSliceSche.slices.keys())))
-            makePlotsInter('DL',times_DL,rU_DL,plr_DL,th_DL,cnx_DL,buf_DL,met,bw,self.schIn,self.gr)
-
-        if self.num_usersUL>0:
-            printResults('UL',self.usersUL,self.num_usersUL,interSliceSche.slices[self.label].schedulerUL,t_sim,True,False,self.sinr_0UL)
-            # print('Configured Signalling Load: '+str(interSliceSche.slices[self.label].signLoad))
-            # print('Using Robust MCS: '+str(interSliceSche.slices[self.label].robustMCS))
-            [SINR_UL,times_UL,mcs_UL,rU_UL,plr_UL,th_UL] = getKPIs('UL','Statistics/ulStsts'+'_'+self.label+'.txt',self.usersUL,self.num_usersUL,self.sinr_0UL,measInterv,t_sim)
-            makePlotsIntra('UL',times_UL,SINR_UL,mcs_UL,rU_UL,plr_UL,th_UL,self.label,bw,self.sch,self.mgr)
-            [times_UL,rU_UL,plr_UL,th_UL,cnx_UL,buf_UL,met] = getKPIsInter('UL','Statistics/ulStsts_InterSlice.txt',list(interSliceSche.slices.keys()),len(list(interSliceSche.slices.keys())))
-            makePlotsInter('UL',times_UL,rU_UL,plr_UL,th_UL,cnx_UL,buf_UL,met,bw,self.schIn,self.gr)
 
 def printResults(dir,users,num_users,scheduler,t_sim,singleRunMode,fileSINR,sinr):
     """This method prints main simulation results on the terminal"""

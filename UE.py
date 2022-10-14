@@ -1,11 +1,219 @@
-""" This module contains the UE, Packet Flow, Packet, PcktQueue, Bearer and RadioLink clases.
-This clases are oriented to describe UE traffic profile, and UE relative concepts
 """
-import os
-import sys
+	This module contains the UE, Packet Flow, Packet, PcktQueue, Bearer and RadioLink clases.
+	This clases are oriented to describe UE traffic profile, and UE relative concepts
+"""
+
 import random
-import simpy
 from collections import deque
+import numpy as np
+from regex import F
+from Results import (
+	printResults, getKPIs, makePlotsIntra, getKPIsInter, makePlotsInter
+)
+
+DEEPMIMO_DATAFILE_PREFIX = 'Data_'
+DEEPMIMO_DATAFILE_SUFFIX = '.npz'
+
+
+def initialSinrGenerator(n_ues, refValue):
+    """
+        Auxiliary method for SINR generation. This method is used to generate initial 
+        UE SINR. Later, during the simulation SINR will have small variations with time.
+    """
+    genSINRs = []
+    sameSINR = refValue[0] == 'S'
+    value = float(refValue[1:])
+    delta = float(value - 5.0)/n_ues
+    for i in range(n_ues):
+        if sameSINR:
+            genSINRs.append(value)
+        else:
+            genSINRs.append(value-delta*i)
+    return genSINRs
+
+
+class UEgroup:
+    """
+        This class is used to describe traffic profile and requirements of group of UE which
+        the simulation will run for. It is assumed that all UEs shares the same traffic profile
+        and service requirements, and will be served by the same slice.
+    """
+    def __init__(
+        self, nuDL, nuUL, pszDL, pszUL, parrDL, parrUL, label, dly, avlty, schedulerType, mmMd,
+        lyrs, cell, t_sim, measInterv, env, sinr, init_ues=True
+    ):
+        self.num_usersDL = nuDL
+        self.num_usersUL = nuUL
+        self.p_sizeDL = pszDL
+        self.p_sizeUL = pszUL
+        self.p_arr_rateDL = parrDL
+        self.p_arr_rateUL = parrUL
+        self.sinr_0DL = 0
+        """Initial sinr value for DL"""
+        self.sinr_0UL = 0
+        """Initial sinr value for UL"""
+        self.sch = schedulerType
+        """Intra Slice scheduler algorithm"""
+        self.label = label
+        """Slice label"""
+        self.req = {}
+        """Dictionary with services requirements"""
+        self.mmMd = mmMd
+        self.lyrs = lyrs
+        self.gr = cell.interSliceSched.granularity
+        """Inter Slice scheduler time granularity"""
+        self.mgr = measInterv
+        """Meassurement time granularity"""
+        self.setReq(dly,avlty)
+        self.schIn = cell.sch
+        
+        if init_ues:
+            self.setInitialSINR(sinr)
+            """Inter Slice scheduler algorithm"""
+            if self.num_usersDL>0:
+                self.usersDL,self.flowsDL = self.initializeUEs('DL',self.num_usersDL,self.p_sizeDL,self.p_arr_rateDL,self.sinr_0DL,cell,t_sim,measInterv,env)
+            if self.num_usersUL>0:
+                self.usersUL,self.flowsUL = self.initializeUEs('UL',self.num_usersUL,self.p_sizeUL,self.p_arr_rateUL,self.sinr_0UL,cell,t_sim,measInterv,env)
+
+    def setReq(self,delay,avl):
+        """
+            This method sets the service requirements depending on the UE group traffic profile and required delay
+        """
+        self.req['reqDelay'] = delay
+        self.req['reqThroughputDL'] = 8*self.p_sizeDL*self.p_arr_rateDL
+        self.req['reqThroughputUL'] = 8*self.p_sizeUL*self.p_arr_rateUL
+        self.req['reqAvailability'] = avl
+
+    def setInitialSINR(self,sinr):
+        """This method sets the initial SINR value"""
+        if self.num_usersDL>0:
+            self.sinr_0DL = initialSinrGenerator(self.num_usersDL,sinr)
+        if self.num_usersUL>0:
+            self.sinr_0UL = initialSinrGenerator(self.num_usersUL,sinr)
+    
+
+    def initializeUEs(
+        self, dir, num_users, p_size, p_arr_rate, sinr_0, cell, t_sim, measInterv, env, update_rl=True
+    ):
+        """
+            This method creates the UEs with its traffic flows, and initializes the asociated PEM methods
+        """
+        users = []
+        flows = []
+        procFlow = []
+        procUE = []
+        procRL = []
+        for j in range (num_users):
+            ue_name = 'ue'+str(j+1)#+'-'+self.label
+            users.append(UE(ue_name,float(sinr_0[j]),0,20))
+            flows.append(PacketFlow(1,p_size,p_arr_rate,ue_name,dir,self.label))
+            users[j].addPacketFlow(flows[j])
+            users[j].packetFlows[0].setQosFId(1)
+            # Flow, UE and RL PEM activation
+            procFlow.append(env.process(users[j].packetFlows[0].queueAppPckt(env,tSim=t_sim)))
+            procUE.append(env.process(users[j].receivePckt(env,c=cell)))
+            if update_rl:
+                procRL.append(env.process(users[j].radioLinks.updateLQ(env,udIntrv=measInterv,tSim=t_sim,fl=False,u=num_users,r='')))
+        return users,flows
+
+    def activateSliceScheds(self,interSliceSche,env):
+        """This method activates PEM methods from the intra Slice schedulers"""
+        if self.num_usersDL>0:
+            procSchDL = env.process(interSliceSche.slices[self.label].schedulerDL.queuesOut(env))
+        if self.num_usersUL>0:
+            procSchUL = env.process(interSliceSche.slices[self.label].schedulerUL.queuesOut(env))
+
+    def printSliceResults(self,interSliceSche,t_sim,bw,measInterv):
+        """This method prints main simulation results on the terminal, gets the considered kpi from the statistic files, and builds kpi plots"""
+        if self.num_usersDL>0:
+            printResults('DL',self.usersDL,self.num_usersDL,interSliceSche.slices[self.label].schedulerDL,t_sim,True,False,self.sinr_0DL)
+            # print('Configured Signalling Load: '+str(interSliceSche.slices[self.label].signLoad))
+            # print('Using Robust MCS: '+str(interSliceSche.slices[self.label].robustMCS))
+            [SINR_DL,times_DL,mcs_DL,rU_DL,plr_DL,th_DL] = getKPIs('DL','Statistics/dlStsts'+'_'+self.label+'.txt',self.usersDL,self.num_usersDL,self.sinr_0DL,measInterv,t_sim)
+            makePlotsIntra('DL',times_DL,SINR_DL,mcs_DL,rU_DL,plr_DL,th_DL,self.label,bw,self.sch,self.mgr)
+            [times_DL,rU_DL,plr_DL,th_DL,cnx_DL,buf_DL,met] = getKPIsInter('DL','Statistics/dlStsts_InterSlice.txt',list(interSliceSche.slices.keys()),len(list(interSliceSche.slices.keys())))
+            makePlotsInter('DL',times_DL,rU_DL,plr_DL,th_DL,cnx_DL,buf_DL,met,bw,self.schIn,self.gr)
+
+        if self.num_usersUL>0:
+            printResults('UL',self.usersUL,self.num_usersUL,interSliceSche.slices[self.label].schedulerUL,t_sim,True,False,self.sinr_0UL)
+            # print('Configured Signalling Load: '+str(interSliceSche.slices[self.label].signLoad))
+            # print('Using Robust MCS: '+str(interSliceSche.slices[self.label].robustMCS))
+            [SINR_UL,times_UL,mcs_UL,rU_UL,plr_UL,th_UL] = getKPIs('UL','Statistics/ulStsts'+'_'+self.label+'.txt',self.usersUL,self.num_usersUL,self.sinr_0UL,measInterv,t_sim)
+            makePlotsIntra('UL',times_UL,SINR_UL,mcs_UL,rU_UL,plr_UL,th_UL,self.label,bw,self.sch,self.mgr)
+            [times_UL,rU_UL,plr_UL,th_UL,cnx_UL,buf_UL,met] = getKPIsInter('UL','Statistics/ulStsts_InterSlice.txt',list(interSliceSche.slices.keys()),len(list(interSliceSche.slices.keys())))
+            makePlotsInter('UL',times_UL,rU_UL,plr_UL,th_UL,cnx_UL,buf_UL,met,bw,self.schIn,self.gr)
+
+
+class UeGroupDeepMimo(UEgroup):
+    def __init__(
+        self, nuDL, nuUL, pszDL, pszUL, parrDL, parrUL, label, dly, avlty, schedulerType, mmMd, lyrs,
+        cell, t_sim, measInterv, env, ueg_dir, is_dynamic, scene_duration
+    ):
+        super(UeGroupDeepMimo, self).__init__(
+            nuDL, nuUL, pszDL, pszUL, parrDL, parrUL, label, dly, avlty, schedulerType, mmMd, lyrs,
+            cell, t_sim, measInterv, env, init_ues=False
+        )
+        self.ue_group_dir = ueg_dir
+        self.id_ant = cell.id_ant
+        self.current_scene = 1
+        self.is_dynamic = is_dynamic
+        self.scene_duration = scene_duration
+
+        self.setInitialSINR()
+
+        if self.num_usersDL>0:
+            self.usersDL,self.flowsDL = self.initializeUEs('DL',self.num_usersDL,self.p_sizeDL,self.p_arr_rateDL,self.sinr_0DL,cell,t_sim,measInterv,env)
+        if self.num_usersUL>0:
+            self.usersUL,self.flowsUL = self.initializeUEs('UL',self.num_usersUL,self.p_sizeUL,self.p_arr_rateUL,self.sinr_0UL,cell,t_sim,measInterv,env)
+    
+    def initializeUEs(
+        self, dir, num_users, p_size, p_arr_rate, sinr_0, cell, t_sim, measInterv, env
+    ):
+        users, flows = super(UeGroupDeepMimo, self).initializeUEs(
+            dir, num_users, p_size, p_arr_rate, sinr_0, cell, t_sim, measInterv, env, update_rl=False
+        )
+        if self.is_dynamic:
+            env.process(self.updateUEgRL(env, t_sim))
+        return users,flows
+    
+    def setInitialSINR(self,sinr):
+        """
+            This method sets the initial SINR value
+        """
+        if self.num_usersDL>0:
+            self.sinr_0DL = self.readSINR(self.num_usersDL,sinr)
+        if self.num_usersUL>0:
+            self.sinr_0UL = self.readSINR(self.num_usersUL,sinr)
+    
+    def readSINR(self, cantUE, time=0):
+        """
+            This method returns a list containing SINRs of UEgroup at moment=time
+        """
+        file_name = self.ue_group_dir + "/SNR_" + str(time) + ".npy"
+        all_SINRs = np.load(file_name, mmap_mode='r')
+        SINRs_out = all_SINRs[0:cantUE, self.id_ant].tolist()
+
+        # TODO: Cambiar para abrir archivos del tipo:
+        #   https://numpy.org/doc/stable/reference/generated/numpy.savez.html
+
+        return SINRs_out
+    
+    def updateUEgRL(self, env, tSim):
+        """
+            This PEM method updates all UE's radio link quality in the group
+        """
+        nuser = max(self.num_usersDL, self.num_usersUL)
+        while env.now<(tSim*0.83):
+            yield env.timeout(self.scene_duration)
+            snrs = self.readSINR(cantUE=nuser, time=self.current_scene)
+            if self.num_usersDL>0:
+                for i, usr in enumerate(self.usersDL):
+                    usr.radioLinks.updateLQ(snrs[i])
+            if self.num_usersUL>0:
+                for i, usr in enumerate(self.usersUL):
+                    usr.radioLinks.updateLQ(snrs[i])
+            self.current_scene += 1
+
 
 # UE class: terminal description
 
@@ -222,9 +430,23 @@ class RadioLink():
 		self.totCount = 0
 		self.maxVar = 0.1
 
-	def updateLQ(self,lq):
-		"""This method updates UE link quality in terms of SINR during the simulation"""
-		self.linkQuality = lq
+	def updateLQ(self,env,udIntrv,tSim,fl,u,r):
+		"""
+			This method updates UE link quality in terms of SINR during the simulation. This is a PEM method.
+			During the simulation it is assumed that UE SINR varies following a normal distribution with mean
+			value equal to initial SINR value, and a small variance.
+		"""
+
+		while env.now<(tSim*0.83):
+			yield env.timeout(udIntrv)
+			deltaSINR = random.normalvariate(0, self.maxVar)
+			while deltaSINR > self.maxVar or deltaSINR<(0-self.maxVar):
+				deltaSINR = random.normalvariate(0, self.maxVar)
+			self.linkQuality = self.linkQuality + deltaSINR
+
+	# def updateLQ(self,lq):
+	# 	"""This method updates UE link quality in terms of SINR during the simulation"""
+	# 	self.linkQuality = lq
 
 class Format:
     CEND      = '\33[0m'

@@ -13,11 +13,12 @@ from Scheds_Inter import *
 
 class Cell():
     """Cell class has cell relative parameters and collect kpi ststistics. """
-    def __init__(self,id_ant,i,b,fr,dm,mBue,tdd,gr,schInter):
-        """This method creates a cell instance.
-
-        It initialices cell parameters and interSliceScheduler according to the algorithm specified on the sch attribute."""
-        self.id_ant = id_ant
+    def __init__(self,i,b,fr,dm,mBue,tdd,gr,schInter):
+        """
+            This method creates a cell instance. It initialices cell parameters and interSliceScheduler
+            according to the algorithm specified on the sch attribute.
+        """
+        self.id_ant = 0  # Only one radiobase in DeepMimo scenes.
         self.id = i
         self.bw = b
         self.inactTimer = 3000
