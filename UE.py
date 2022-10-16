@@ -13,6 +13,9 @@ from Results import (
 
 DEEPMIMO_DATAFILE_PREFIX = 'Data_'
 DEEPMIMO_DATAFILE_SUFFIX = '.npz'
+DEEPMIMO_DATAFILE_ARR_NAME_SNR = 'arr_0'
+DEEPMIMO_DATAFILE_ARR_NAME_RANK = 'arr_1'
+DEEPMIMO_DATAFILE_ARR_NAME_DEGREE = 'arr_2'
 
 
 def initialSinrGenerator(n_ues, refValue):
@@ -153,18 +156,24 @@ class UeGroupDeepMimo(UEgroup):
             nuDL, nuUL, pszDL, pszUL, parrDL, parrUL, label, dly, avlty, schedulerType, mmMd, lyrs,
             cell, t_sim, measInterv, env, init_ues=False
         )
-        self.ue_group_dir = ueg_dir
-        self.id_ant = cell.id_ant
+        self.ue_group_dir = ueg_dir.strip('/')
+        self.id_ant = cell.id_ant  # TODO: Borrar cuando Mateo haga el cambio.
         self.current_scene = 1
         self.is_dynamic = is_dynamic
         self.scene_duration = scene_duration
 
-        self.setInitialSINR()
+        self.set_initial_snr()
 
         if self.num_usersDL>0:
-            self.usersDL,self.flowsDL = self.initializeUEs('DL',self.num_usersDL,self.p_sizeDL,self.p_arr_rateDL,self.sinr_0DL,cell,t_sim,measInterv,env)
+            self.usersDL,self.flowsDL = self.initializeUEs(
+				'DL', self.num_usersDL, self.p_sizeDL, self.p_arr_rateDL, self.sinr_0DL, cell,
+				t_sim, measInterv, env
+			)
         if self.num_usersUL>0:
-            self.usersUL,self.flowsUL = self.initializeUEs('UL',self.num_usersUL,self.p_sizeUL,self.p_arr_rateUL,self.sinr_0UL,cell,t_sim,measInterv,env)
+            self.usersUL,self.flowsUL = self.initializeUEs(
+				'UL', self.num_usersUL, self.p_sizeUL, self.p_arr_rateUL, self.sinr_0UL, cell,
+				t_sim, measInterv, env
+			)
     
     def initializeUEs(
         self, dir, num_users, p_size, p_arr_rate, sinr_0, cell, t_sim, measInterv, env
@@ -173,46 +182,50 @@ class UeGroupDeepMimo(UEgroup):
             dir, num_users, p_size, p_arr_rate, sinr_0, cell, t_sim, measInterv, env, update_rl=False
         )
         if self.is_dynamic:
-            env.process(self.updateUEgRL(env, t_sim))
+            env.process(self.pem_update_ue_group_rl(env, t_sim))
         return users,flows
     
-    def setInitialSINR(self,sinr):
+    def set_initial_snr(self,sinr):
         """
-            This method sets the initial SINR value
+            This method sets the initial SNR value
         """
-        if self.num_usersDL>0:
-            self.sinr_0DL = self.readSINR(self.num_usersDL,sinr)
-        if self.num_usersUL>0:
-            self.sinr_0UL = self.readSINR(self.num_usersUL,sinr)
+        # TODO: estamos usando solo un snr en vez de todos los del prb
+        self.update_ue_group_rl()
     
-    def readSINR(self, cantUE, time=0):
+    def read_ues_channel_status(self, cant_ue, time=0):
         """
             This method returns a list containing SINRs of UEgroup at moment=time
         """
-        file_name = self.ue_group_dir + "/SNR_" + str(time) + ".npy"
-        all_SINRs = np.load(file_name, mmap_mode='r')
-        SINRs_out = all_SINRs[0:cantUE, self.id_ant].tolist()
+        file_name = DEEPMIMO_DATAFILE_PREFIX + str(time) + DEEPMIMO_DATAFILE_SUFFIX
+        file_path = self.ue_group_dir + '/' + file_name
+        ueg_channel_status = np.load(file_path)
 
-        # TODO: Cambiar para abrir archivos del tipo:
-        #   https://numpy.org/doc/stable/reference/generated/numpy.savez.html
+        snrs = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_SNR][0:cant_ue,:,0]  # TODO: Se va a sacar la dim de la BS
+        ranks = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_RANK][0:cant_ue,:,0]  # TODO: Se va a sacar la dim de la BS
+        degrees = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_DEGREE][0:cant_ue,:,0]  # TODO: Se va a sacar la dim de la BS
 
-        return SINRs_out
+        return snrs, ranks, degrees
     
-    def updateUEgRL(self, env, tSim):
+    def pem_update_ue_group_rl(self, env, tSim):
         """
             This PEM method updates all UE's radio link quality in the group
         """
-        nuser = max(self.num_usersDL, self.num_usersUL)
+        # TODO: Cambiar para actualizar un modelo de canal mas razonable.
         while env.now<(tSim*0.83):
             yield env.timeout(self.scene_duration)
-            snrs = self.readSINR(cantUE=nuser, time=self.current_scene)
-            if self.num_usersDL>0:
-                for i, usr in enumerate(self.usersDL):
-                    usr.radioLinks.updateLQ(snrs[i])
-            if self.num_usersUL>0:
-                for i, usr in enumerate(self.usersUL):
-                    usr.radioLinks.updateLQ(snrs[i])
+            self.update_ue_group_rl()
             self.current_scene += 1
+    
+    def update_ue_group_rl(self):
+        cant_users = max(self.num_usersDL, self.num_usersUL)
+        snrs, _, _ = self.read_ues_channel_status(cant_ue=cant_users, time=self.current_scene)
+        if self.num_usersDL > 0:
+            for i, usr in enumerate(self.usersDL):
+                usr.radioLinks.updateLQ(snrs[i,0])
+        if self.num_usersUL > 0:
+            for i, usr in enumerate(self.usersUL):
+                usr.radioLinks.updateLQ(snrs[i,0])
+
 
 
 # UE class: terminal description
