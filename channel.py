@@ -6,7 +6,9 @@ import random
 
 
 class RadioLink():
-	"""This class is used to model radio link properties and behabiour."""
+	"""
+        This class is used to model radio link properties and behabiour.
+    """
 	def __init__(self,i,lq_0,u):
 		self.id = i
 		state = 'ON'
@@ -35,3 +37,20 @@ class RadioLink():
         """
 		self.linkQuality = lq
 
+
+class RadioLinkDeepMimo:
+    """
+        This class is used to model radio link properties and behabiour for DeepMIMO scenarios.
+    """
+    def __init__(self, ue, cell):
+        self.ue = ue
+        self.cell = cell
+        self.snr = []
+        self.rank = []
+        self.degree = []
+    
+    def update_link_quality(self, snr, rank, degree):
+        self.snr = snr
+        self.rank = rank
+        self.degree = degree
+        
