@@ -8,6 +8,7 @@ from matplotlib.ticker import (AutoMinorLocator, MultipleLocator)
 # from UE import *
 from Cell import Format
 import numpy as np
+from utilities import Format
 
 def printResults(dir,users,num_users,scheduler,t_sim,singleRunMode,fileSINR,sinr):
     """This method prints main simulation results on the terminal"""

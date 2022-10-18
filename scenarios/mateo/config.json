@@ -1,0 +1,18 @@
+{
+    "bandwidth": 60,
+    "frecuency": 30,
+    "cant_prbs": 43,
+    "is_dynamic": true,
+    "refresh_rate": 1000,
+    "sim_duration": 30000,
+    "ue_groups": {
+        "UEgroup_0": {
+            "cant_ue": 10,
+            "static": false
+        },
+        "UEgroup_1": {
+            "cant_ue": 50,
+            "static": false
+        }
+    }
+}

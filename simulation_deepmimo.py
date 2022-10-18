@@ -1,22 +1,26 @@
-"""This is the simulation script.
-Simulation, cell and traffic profile parameters can be set here.
 """
-import os
-import sys
+    This is the simulation script for deepMIMO scenarios.
+"""
+
 import simpy
-import json
 from UE import *
+from UE import (
+    UeGroupDeepMimo
+)
 from Cell import *
 from Results import *
+import json
 from utilities import Format
+
+DEEPMIMO_CONFIG_FILE = 'config.json'
 
 #------------------------------------------------------------------------------------------------------
 #              Cell & Simulation parameters
 #------------------------------------------------------------------------------------------------------
 
-# scenario_dir = "scenarios/I2_28B/"
+scenario_dir = "scenarios/mateo/"
 
-# general_config = json.load(open(scenario_dir + 'config.json'))
+general_config = json.load(open(scenario_dir + DEEPMIMO_CONFIG_FILE))
 # bandwidth = general_config["bandwidth"]
 # center_freq = general_config["frecuency"]
 # is_dynamic = general_config["is_dynamic"]
@@ -78,7 +82,9 @@ interSliceSche1 = cell1.interSliceSched
 #UEgroup1 = UEgroup(3,0,10000,0,2,0,'LTE',20,'','RR','',1,cell1,t_sim,measInterv,env,'S37')
 # UEgroup1 = UEgroup(3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,'S37')
 
-UEgroup0 = UEgroup(3,0,5000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,'S37')
+UEgroup0 = UeGroupDeepMimo(
+    3,0,5000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env, scenario_dir+'UEgroup_0', True, 8000
+)
 
 """Group of users with defined traffic profile, capabilities and service requirements for which the sumulation will run.
 

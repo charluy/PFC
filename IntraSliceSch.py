@@ -6,6 +6,7 @@ import simpy
 from collections import deque
 import math
 import random
+from utilities import Format
 
 class IntraSliceScheduler():
     """ Basic intra slice scheduler. It implements Round Robin algorithm."""
