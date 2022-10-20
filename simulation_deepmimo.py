@@ -71,17 +71,6 @@ interSliceSche1 = cell1.interSliceSched
 
 #           DIFFERENT TRAFFIC PROFILES SETTING
 
-# A few examples ...
-
-#UEgroup1 = UEgroup(1,3,100000,8000,3,1,'eMBB',10,'','RR','',1,cell1,t_sim,measInterv,env,'S37')
-#UEgroup1 = UEgroup(0,5,0,150,0,60,'m-MTC-2',10,'','RR','',1,cell1,t_sim,measInterv,env,'D37')
-#UEgroup1 = UEgroup(0,4,0,2000,0,5000,'eMBB-1',20,'','','',1,cell1,t_sim,measInterv,env,'S25')
-#UEgroup2 = UEgroup(0,15,0,350,0,10,'eMBB-2',20,'','PF11','',1,cell1,t_sim,measInterv,env,'S20')
-# UEgroup2 = UEgroup(0,10,0,350,0,6000,'mMTC-1',20,'','RR','',1,cell1,t_sim,measInterv,env,'S5')
-#UEgroup3 = UEgroup(0,8,0,1500,0,6,'URLLC-1',5,'','PF11','',1,cell1,t_sim,measInterv,env,'S25')
-#UEgroup1 = UEgroup(3,0,10000,0,2,0,'LTE',20,'','RR','',1,cell1,t_sim,measInterv,env,'S37')
-# UEgroup1 = UEgroup(3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,'S37')
-
 UEgroup0 = UeGroupDeepMimo(
     3,0,5000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env, scenario_dir+'UEgroup_0', True, 8000
 )

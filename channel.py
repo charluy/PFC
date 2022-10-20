@@ -3,6 +3,7 @@
 """
 
 import random
+import numpy as np
 
 
 class RadioLink():
@@ -48,9 +49,11 @@ class RadioLinkDeepMimo:
         self.snr = []
         self.rank = []
         self.degree = []
+        self.linkQuality = 0  # TODO: ver si hay que dejarlo
     
-    def update_link_quality(self, snr, rank, degree):
+    def update_link_status(self, snr, rank, degree):
         self.snr = snr
         self.rank = rank
         self.degree = degree
+        self.linkQuality = np.mean(snr)
         

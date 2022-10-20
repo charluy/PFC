@@ -12,7 +12,9 @@ from Results import (
 from utilities import (
     initialSinrGenerator, Format
 )
-from channel import RadioLink
+from channel import (
+    RadioLink, RadioLinkDeepMimo
+)
 from packet import (
     PacketFlow, Bearer
 )
@@ -254,11 +256,14 @@ class UeGroupDeepMimo(UeGroupBase):
             This methods read DeepMIMO channel status files and update each UE radio link 
             quality.
         """
+
         cant_users = max(self.num_usersDL, self.num_usersUL)
-        snrs, _, _ = self.read_ues_channel_status(cant_ue=cant_users, time=self.current_scene)
+        snrs, ranks, degrees = self.read_ues_channel_status(cant_ue=cant_users, time=self.current_scene)
+
         if self.num_usersDL > 0:
             for i, usr in enumerate(self.usersDL):
                 usr.radioLinks.update_link_quality_from_value(snrs[i,0])
+
         if self.num_usersUL > 0:
             for i, usr in enumerate(self.usersUL):
                 usr.radioLinks.update_link_quality_from_value(snrs[i,0])
@@ -266,109 +271,140 @@ class UeGroupDeepMimo(UeGroupBase):
 
 # UE class: terminal description
 
-class UE():
-	""" This class is used to model UE behabiour and relative properties """
-	def __init__(self, i,ue_sinr0,p,npM):
-		self.id = i
-		self.state = 'RRC-IDLE'
-		self.packetFlows = []
-		self.bearers = []
-		self.radioLinks = RadioLink(1,ue_sinr0,self.id)
-		self.TBid = 1
-		self.pendingPckts = {}
-		self.prbs = p
-		self.resUse = 0
-		self.pendingTB = []
-		self.bler = 0
-		self.tbsz = 1
-		self.MCS = 0
-		self.pfFactor = 1 # PF Scheduler
-		self.pastTbsz = deque([1]) # PF Scheduler
-		self.lastDen = 0.001 # PF Scheduler
-		self.num = 0 # PF Scheduler
-		self.BWPs = npM
-		self.TXedTB = 1
-		self.lostTB = 0
-		self.symb = 0
+class UeBase:
+    """
+        This class is used to model UE behabiour and relative properties
+    """
+    def __init__(self, id, ue_initial_sinr):
+        self.id = id
+        self.state = 'RRC-IDLE'
+        self.packetFlows = []
+        self.bearers = []
 
-	def addPacketFlow(self,pckFl):
-		self.packetFlows.append(pckFl)
+        self.TBid = 1
+        self.pendingPckts = {}
 
-	def addBearer(self,br):
-		self.bearers.append(br)
+        self.resUse = 0
+        self.pendingTB = []
+        self.bler = 0
+        self.tbsz = 1
+        self.MCS = 0
+        self.pfFactor = 1 # PF Scheduler
+        self.pastTbsz = deque([1]) # PF Scheduler
+        self.lastDen = 0.001 # PF Scheduler
+        self.num = 0 # PF Scheduler
 
-	def receivePckt(self,env,c): # PEM -------------------------------------------
-		"""
+        self.TXedTB = 1
+        self.lostTB = 0
+        self.symb = 0
+    
+    def addPacketFlow(self, pckFl):
+        self.packetFlows.append(pckFl)
+
+    def addBearer(self, br):
+        self.bearers.append(br)
+    
+    def receivePckt(self,env,c): # PEM -------------------------------------------
+        """
             This method takes packets on the application buffers and leave them on the bearer buffers.
             This is a PEM method.
         """
-		while True:
-			if len(self.packetFlows[0].appBuff.pckts)>0:
-				if self.state == 'RRC-IDLE': # Not connected
-					self.connect(c)
-					nextPackTime = c.tUdQueue
-					yield env.timeout(nextPackTime)
-					if nextPackTime > c.inactTimer:
-						self.releaseConnection(c)
-				else: # Already connecter user
-					self.queueDataPckt(c)
-					nextPackTime = c.tUdQueue
-					yield env.timeout(nextPackTime)
-					if nextPackTime > c.inactTimer:
-						self.releaseConnection(c)
-			else:
-				nextPackTime = c.tUdQueue
-				yield env.timeout(nextPackTime)
+        while True:
+            if len(self.packetFlows[0].appBuff.pckts)>0:
+                if self.state == 'RRC-IDLE': # Not connected
+                    self.connect(c)
+                    nextPackTime = c.tUdQueue
+                    yield env.timeout(nextPackTime)
+                    if nextPackTime > c.inactTimer:
+                        self.releaseConnection(c)
+                else: # Already connecter user
+                    self.queueDataPckt(c)
+                    nextPackTime = c.tUdQueue
+                    yield env.timeout(nextPackTime)
+                    if nextPackTime > c.inactTimer:
+                        self.releaseConnection(c)
+            else:
+                nextPackTime = c.tUdQueue
+                yield env.timeout(nextPackTime)
+    
+    def connect(self,cl):
+        """This method creates bearers and bearers buffers."""
+        bD = Bearer(1,9,self.packetFlows[0].type)
+        self.addBearer(bD)
+        self.queueDataPckt(cl)
+        if self.packetFlows[0].type == 'DL':
+            if (list(cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues.keys()).count(self.id))<1:
+                cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues[self.id] = self
+        else:
+            if (list(cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues.keys()).count(self.id))<1:
+                cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues[self.id] = self
+        self.state = 'RRC-CONNECTED'
+    
+    def queueDataPckt(self,cell):
+        """
+            This method queues the packets taken from the application buffer in the bearer buffers.
+        """
+        pD = self.packetFlows[0].appBuff.removePckt()
+        buffSizeAllUEs = 0
+        buffSizeThisUE = 0
+        if self.packetFlows[0].type == 'DL':
+            for ue in list(cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues.keys()):
+                buffSizeUE = 0
+                for p in cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues[ue].bearers[0].buffer.pckts:
+                    buffSizeUE = buffSizeUE + p.size
+                if self.id == ue:
+                    buffSizeThisUE = buffSizeUE
+                buffSizeAllUEs = buffSizeAllUEs + buffSizeUE
+        else:
+            for ue in list(cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues.keys()):
+                buffSizeUE = 0
+                for p in cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues[ue].bearers[0].buffer.pckts:
+                    buffSizeUE = buffSizeUE + p.size
+                if self.id == ue:
+                    buffSizeThisUE = buffSizeUE
+                buffSizeAllUEs = buffSizeAllUEs + buffSizeUE
 
-	def connect(self,cl):
-		"""This method creates bearers and bearers buffers."""
-		bD = Bearer(1,9,self.packetFlows[0].type)
-		self.addBearer(bD)
-		self.queueDataPckt(cl)
-		if self.packetFlows[0].type == 'DL':
-			if (list(cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues.keys()).count(self.id))<1:
-				cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues[self.id] = self
-		else:
-			if (list(cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues.keys()).count(self.id))<1:
-				cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues[self.id] = self
-		self.state = 'RRC-CONNECTED'
+        if buffSizeThisUE<cell.maxBuffUE:#len(self.bearers[1].buffer.pckts)<cell.maxBuffUE:
+            self.bearers[0].buffer.insertPckt(pD)
+        else:
+            pcktN = pD.secNum
+            #print (Format.CRED+Format.CBOLD+self.id,'packet ',pcktN,' lost .....',str(pD.tIn)+Format.CEND)
+            if self.packetFlows[0].type == 'DL':
+                cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.printDebDataDM('<p style="color:red"><b>'+str(self.id)+' packet '+str(pcktN)+' lost .....'+str(pD.tIn)+'</b></p>')
+            else:
+                cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.printDebDataDM('<p style="color:red"><b>'+str(self.id)+' packet '+str(pcktN)+' lost .....'+str(pD.tIn)+'</b></p>')
+            self.packetFlows[0].lostPackets = self.packetFlows[0].lostPackets + 1
+    
+    def releaseConnection(self,cl):
+        self.state = 'RRC-IDLE'
+        self.bearers = []
 
 
-	def queueDataPckt(self,cell):
-		"""This method queues the packets taken from the application buffer in the bearer buffers."""
-		pD = self.packetFlows[0].appBuff.removePckt()
-		buffSizeAllUEs = 0
-		buffSizeThisUE = 0
-		if self.packetFlows[0].type == 'DL':
-			for ue in list(cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues.keys()):
-				buffSizeUE = 0
-				for p in cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues[ue].bearers[0].buffer.pckts:
-					buffSizeUE = buffSizeUE + p.size
-				if self.id == ue:
-					buffSizeThisUE = buffSizeUE
-				buffSizeAllUEs = buffSizeAllUEs + buffSizeUE
-		else:
-			for ue in list(cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues.keys()):
-				buffSizeUE = 0
-				for p in cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues[ue].bearers[0].buffer.pckts:
-					buffSizeUE = buffSizeUE + p.size
-				if self.id == ue:
-					buffSizeThisUE = buffSizeUE
-				buffSizeAllUEs = buffSizeAllUEs + buffSizeUE
+class UE(UeBase):
+    """
+        This class is used to model UE behabiour and relative properties
+        for a simplified version of channel model.
+    """
+    def __init__(self, id, ue_initial_sinr, p, npM):
+        super(UE, self).__init__(id, ue_initial_sinr)
+        self.radioLinks = RadioLink(1, ue_initial_sinr, self.id)
+        self.prbs = p
+        self.BWPs = npM
 
-		if buffSizeThisUE<cell.maxBuffUE:#len(self.bearers[1].buffer.pckts)<cell.maxBuffUE:
-			self.bearers[0].buffer.insertPckt(pD)
-		else:
-			pcktN = pD.secNum
-			#print (Format.CRED+Format.CBOLD+self.id,'packet ',pcktN,' lost .....',str(pD.tIn)+Format.CEND)
-			if self.packetFlows[0].type == 'DL':
-				cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.printDebDataDM('<p style="color:red"><b>'+str(self.id)+' packet '+str(pcktN)+' lost .....'+str(pD.tIn)+'</b></p>')
-			else:
-				cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.printDebDataDM('<p style="color:red"><b>'+str(self.id)+' packet '+str(pcktN)+' lost .....'+str(pD.tIn)+'</b></p>')
-			self.packetFlows[0].lostPackets = self.packetFlows[0].lostPackets + 1
 
-	def releaseConnection(self,cl):
-		self.state = 'RRC-IDLE'
-		self.bearers = []
+class UeDeepMimo(UeBase):
+    """
+        This class is used to model UE behabiour and relative properties
+        for a complex version of channel model given by DeepMIMO framework.
+    """
+    def __init__(self, id, ue_initial_sinr, ue_initial_rank, ue_initial_degree, cell):
+        super(UE, self).__init__(id, ue_initial_sinr)
+        self.cell = cell
+        self.radioLinks = RadioLinkDeepMimo(self, cell)
+        self.update_radio_link_status(ue_initial_sinr, ue_initial_rank, ue_initial_degree)
+    
+    def update_radio_link_status(self, snr, rank, degree):
+        self.radioLinks.update_link_status(snr, rank, degree)
+
 
 
