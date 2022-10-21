@@ -5,7 +5,10 @@ from Scheds_Intra import *
 from collections import deque
 
 class Slice:
-    """This class has Slice relative parameters and is used to implement the mapping between service requirements and slice configuration."""
+    """
+        This class has Slice relative parameters and is used to implement the mapping 
+        between service requirements and slice configuration.
+    """
     def __init__(self,dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,tdd,sch):
         self.reqDelay = dly
         self.reqThroughputDL = thDL

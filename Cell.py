@@ -1,4 +1,5 @@
-""" This module contains the Cell class.
+"""
+    This module contains the Cell class.
 """
 import os
 import sys
@@ -11,8 +12,11 @@ from Scheds_Inter import *
 
 # Cell Class: cell description
 
-class Cell():
-    """Cell class has cell relative parameters and collect kpi ststistics. """
+
+class CellBase:
+    """
+        Cell class has cell relative parameters and collect kpi ststistics.
+    """
     def __init__(self,i,b,fr,dm,mBue,tdd,gr,schInter):
         """
             This method creates a cell instance. It initialices cell parameters and interSliceScheduler
@@ -25,24 +29,15 @@ class Cell():
         self.tUdQueue = 0.05
         self.maxBuffUE = mBue
         """Maximum bearer buffer size by UE, in bytes"""
-        self.sch = schInter
-        if schInter[0:3] == 'RRp':
-            self.interSliceSched = RRplus_Scheduler(self.bw,fr,dm,tdd,gr)
-        elif schInter[0:2] == 'PF':
-            self.interSliceSched = PF_Scheduler(self.bw,fr,dm,tdd,gr,schInter)
-        elif schInter[0:2] == 'DT':
-            self.interSliceSched = dynTDD_Scheduler(self.bw,fr,dm,tdd,gr)
-        else:
-            self.interSliceSched = InterSliceScheduler(self.bw,fr,dm,tdd,gr)
-            self.sch = 'RR'
         self.slicesStsts = {}
-
+    
     def updateStsts(self,env,interv,tSim): # ---------- PEM -------------
-        """This method manages the statistics collection. This is a PEM Method.
-
-        This method creates statistics files and stores counter values to calculate later the main kpi considered. \n
-        Inter Slice statistics are stored in the dlStsts_InterSlice.txt file for DL and ulStsts_InterSlice.txt file for UL. \n
-        Intra Slice statistics are stored in the dlStsts_<Slicename>Slice.txt file for DL and ulStsts_<Slicename>Slice.txt file for UL."""
+        """
+            This method manages the statistics collection. This is a PEM Method.
+            This method creates statistics files and stores counter values to calculate later the main kpi considered. \n
+            Inter Slice statistics are stored in the dlStsts_InterSlice.txt file for DL and ulStsts_InterSlice.txt file for UL. \n
+            Intra Slice statistics are stored in the dlStsts_<Slicename>Slice.txt file for DL and ulStsts_<Slicename>Slice.txt file for UL.
+        """
         if not os.path.exists('Statistics'):
             os.mkdir('Statistics')
         for slice in list(self.interSliceSched.slices.keys()):
@@ -113,3 +108,37 @@ class Cell():
             if env.now % (tSim/10) == 0:
                 i=int(env.now/(tSim/10))
                 print ("\r[%-10s] %d%%" % ('='*i, 10*i)+ ' complete simulation')
+
+
+class Cell(CellBase):
+    """
+        Cell class has cell relative parameters and collect kpi ststistics.
+    """
+    def __init__(self,i,b,fr,dm,mBue,tdd,gr,schInter):
+        """
+            This method creates a cell instance. It initialices cell parameters and interSliceScheduler
+            according to the algorithm specified on the sch attribute.
+        """
+
+        super(Cell, self).__init__(i, b, fr, dm, mBue, tdd, gr, schInter)
+
+        self.sch = schInter
+        if schInter[0:3] == 'RRp':
+            self.interSliceSched = RRplus_Scheduler(self.bw,fr,dm,tdd,gr)
+        elif schInter[0:2] == 'PF':
+            self.interSliceSched = PF_Scheduler(self.bw,fr,dm,tdd,gr,schInter)
+        elif schInter[0:2] == 'DT':
+            self.interSliceSched = dynTDD_Scheduler(self.bw,fr,dm,tdd,gr)
+        else:
+            self.interSliceSched = InterSliceScheduler(self.bw,fr,dm,tdd,gr)
+            self.sch = 'RR'
+        self.slicesStsts = {}
+
+
+class CellDeepMimo(CellBase):
+    """
+        This class handles Cell 
+    """
+    def __init__(self, i, b, fr, dm, mBue, tdd, gr, schInter):
+        super(Cell, self).__init__(i, b, fr, dm, mBue, tdd, gr, schInter)
+
