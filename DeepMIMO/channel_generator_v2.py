@@ -10,7 +10,7 @@ import pprint
 import json
 import numpy as np
 import os
-from aux_functions_2 import create_conf_dict
+from aux_functions_2 import create_conf_dict, round_up_sc_to_12_and_8
 from aux_channel_functions import UE
 
 
@@ -27,12 +27,12 @@ center_freq = 28 # In GHz
 
 # Simulation parameters
 out_dir = "../scenarios/I2_28B/" # Could be another scenario, so the path would be different
-cant_sc = 512
-TX_power = (10**(-1))*512
+bandwidth = 0.05 # In GHz
+cant_sc = round_up_sc_to_12_and_8(bandwidth)
+TX_power = (10**(-1))*cant_sc
 TX_power_sc = float(TX_power)/cant_sc
 UEgroups = [(0,9),(100,149)]
 dyn_UE_positions = [{"position": 7, "UEgroup": 0, "type_of_movement": "vertical"}, {"position": 110, "UEgroup": 1, "type_of_movement": "horizontal"}]
-bandwidth = 0.05 # In GHz
 cant_scenes = 3 
 refresh_rate = 0.001 # In seconds
 
@@ -57,7 +57,7 @@ parameters['OFDM']['bandwidth'] = bandwidth
 parameters['OFDM']['cyclic_prefix_ratio'] = 0.25
 
 # To sample first 512 subcarriers by 1 spacing between each, set
-parameters['OFDM']['subcarriers_limit'] = 512
+parameters['OFDM']['subcarriers_limit'] = cant_sc
 parameters['OFDM']['subcarriers_sampling'] = 1
 
 # Ponemos una antena en TX y una también en RX
@@ -67,10 +67,6 @@ parameters['ue_antenna']['shape'] = np.array([1,2,1])
 # We define the amount of rows to be used in this case being more than 201 because we have more than 2 rows
 parameters['user_row_first'] = 1
 parameters['user_row_last'] = 4
-
-# Dynamic scenarios - Determines the range of dynamic scenario scenes to be loaded
-# parameters['dynamic_settings']['first_scene'] = 1
-# parameters['dynamic_settings']['last_scene'] = 4
 
 pp = pprint.PrettyPrinter(indent=4)
 pp.pprint(parameters)
@@ -85,7 +81,7 @@ except:
     pass
 
 # Create general configuration file
-conf_dict = create_conf_dict(center_freq, bandwidth, cant_sc, is_dynamic, 1, 3, UEgroups)
+conf_dict = create_conf_dict(center_freq, bandwidth, cant_sc, is_dynamic, refresh_rate*1000, cant_scenes*refresh_rate*1000, UEgroups)
 
 with open(out_dir + "config.json", "w") as outfile:
     json.dump(conf_dict, outfile, indent=4)
@@ -113,6 +109,8 @@ for scene in range(0, cant_scenes):
         # TX_ant = 0
         SNR = np.zeros(shape = (cant_ue, len(PRBs)))
         rank = np.zeros(shape = (cant_ue, len(PRBs)))
+        print("the shape of the rank is")
+        print(rank.shape)
         DoA = np.zeros(shape = (cant_ue, 2))
 
         # Create the UEs for each UE group
@@ -164,11 +162,7 @@ for scene in range(0, cant_scenes):
                 #     # print ("has a speed of")
                 #     # print (ue.speed)
                 #     print(ue.position)
-
-        # print("Lets see the info of the SNR obtained")
-        # print(SNR.shape)
-        # print(SNR)        
+  
         np.savez(UEg_out_dir + "/Data_" + str(scene), SNR=SNR, rank=rank , DoA=DoA)
-        #print(20*np.log(SNR))
 
         
