@@ -3,13 +3,16 @@
 #   - https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html
 #   - https://medium.com/@nrk25693/how-to-add-your-conda-environment-to-your-jupyter-notebook-in-just-4-steps-abeab8b8d084
 
+#from DeepMIMO.aux_channel_functions import create_conf_dict
 from turtle import position
 import DeepMIMO
 import pprint
 import json
 import numpy as np
 import os
+from aux_functions_2 import create_conf_dict
 from aux_channel_functions import UE
+
 
 
 
@@ -17,7 +20,6 @@ from aux_channel_functions import UE
 scenario_name = "I2_28B"
 is_dynamic = True 
 cant_dynamic_ues = 1 # Lets try first with one dynamic user
-cant_scenes = 3 # Lets try just two scenes for a first try
 cant_bs = 1 # Number of base station in DeepMIMO selected scenario
 n_ue_rows = 701
 n_ue_columns = 201
@@ -31,6 +33,8 @@ TX_power_sc = float(TX_power)/cant_sc
 UEgroups = [(0,9),(100,149)]
 dyn_UE_positions = [{"position": 7, "UEgroup": 0, "type_of_movement": "vertical"}, {"position": 110, "UEgroup": 1, "type_of_movement": "horizontal"}]
 bandwidth = 0.05 # In GHz
+cant_scenes = 3 
+refresh_rate = 0.001 # In seconds
 
 # Load the default parameters
 parameters = DeepMIMO.default_params()
@@ -81,21 +85,8 @@ except:
     pass
 
 # Create general configuration file
-conf_dict = {
-    "frecuency": center_freq, # In GHz
-    "bandwidth": int(bandwidth*1000), # In MHz
-    "n_sc": cant_sc,
-    "is_dynamic": is_dynamic,
-    "refresh_rate": 0,
-    "sim_duration": 0,
-    "n_ueg": len(UEgroups),
-    "base_stations":
-    [
-        {
-            "id": 0
-        }
-    ]
-}
+conf_dict = create_conf_dict(center_freq, bandwidth, cant_sc, is_dynamic, 1, 3, UEgroups)
+
 with open(out_dir + "config.json", "w") as outfile:
     json.dump(conf_dict, outfile, indent=4)
 
@@ -120,9 +111,9 @@ for scene in range(0, cant_scenes):
 
         # RX_ant = 0
         # TX_ant = 0
-        SNR = np.zeros(shape = (cant_ue, len(PRBs), cant_bs))
-        rank = np.zeros(shape = (cant_ue, len(PRBs), cant_bs))
-        DoA = np.zeros(shape = (cant_ue, cant_bs, 2))
+        SNR = np.zeros(shape = (cant_ue, len(PRBs)))
+        rank = np.zeros(shape = (cant_ue, len(PRBs)))
+        DoA = np.zeros(shape = (cant_ue, 2))
 
         # Create the UEs for each UE group
         UEs = []
@@ -144,11 +135,11 @@ for scene in range(0, cant_scenes):
                 # print(info.shape)
 
                 # Save DoA
-                DoA[ue.position-first_ue][bs][0] = dataset[bs]['user']['paths'][ue.position]['DoA_phi'][0]
-                DoA[ue.position-first_ue][bs][1] = dataset[bs]['user']['paths'][ue.position]['DoA_theta'][1]
+                DoA[ue.position-first_ue][0] = dataset[bs]['user']['paths'][ue.position]['DoA_phi'][0]
+                DoA[ue.position-first_ue][1] = dataset[bs]['user']['paths'][ue.position]['DoA_theta'][1]
 
                 print ('the shape of the DoA is ')
-                print (DoA[ue.position-first_ue][bs][0].shape)
+                print (DoA[ue.position-first_ue].shape)
 
 
                 # Estimate SINR in OFDM carrier:
@@ -157,11 +148,11 @@ for scene in range(0, cant_scenes):
                 B = parameters['OFDM']['bandwidth'] * (10**9) # Ancho de banda del canal OFDM
                 pot_senal = 0
                 for PRB in PRBs:
-                    rank[ue.position-first_ue][PRBs.index(PRB)][bs], antenna_comb = ue.best_rank(info[:, :, PRB], 10)
+                    rank[ue.position-first_ue][PRBs.index(PRB)], antenna_comb = ue.best_rank(info[:, :, PRB], 10)
                     for subp in PRB:
                         pot_senal += TX_power_sc * (info[0:2, antenna_comb, subp]**2)
                         # print(pot_senal.shape)
-                    SNR[ue.position-first_ue][PRBs.index(PRB)][bs] = np.min(np.diagonal(pot_senal / (N_0 * B/len(PRBs))))
+                    SNR[ue.position-first_ue][PRBs.index(PRB)] = np.min(np.diagonal(pot_senal / (N_0 * B/len(PRBs))))
 
                 print("Has rank greater or equal than 2")
                 print(ue.has_at_least_one_prb_with_rank_2(rank[ue.position-first_ue]))
@@ -177,7 +168,7 @@ for scene in range(0, cant_scenes):
         # print("Lets see the info of the SNR obtained")
         # print(SNR.shape)
         # print(SNR)        
-        np.savez(UEg_out_dir + "/Data_" + str(scene), SNR, rank, DoA)
+        np.savez(UEg_out_dir + "/Data_" + str(scene), SNR=SNR, rank=rank , DoA=DoA)
         #print(20*np.log(SNR))
 
         

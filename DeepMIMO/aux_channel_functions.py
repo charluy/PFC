@@ -85,8 +85,6 @@ class UE:
         has_rank_2 = False
 
         for i in range(0, len(ranks)):
-            has_rank_2 = ranks[i][0] == 2
+            has_rank_2 = ranks[i] == 2
 
         return has_rank_2
-
-
