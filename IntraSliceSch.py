@@ -1,5 +1,7 @@
-"""This module contains the basic Intra Slice Scheduler class.
-All possible intra slice schedulers should inherit from this."""
+"""
+    This module contains the basic Intra Slice Scheduler class.
+    All possible intra slice schedulers should inherit from this.
+"""
 import os
 import sys
 import simpy
@@ -9,7 +11,9 @@ import random
 from utilities import Format
 
 class IntraSliceScheduler():
-    """ Basic intra slice scheduler. It implements Round Robin algorithm."""
+    """
+        Basic intra slice scheduler. It implements Round Robin algorithm.
+    """
     def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
         self.band = ba
         self.PRBs = n
@@ -140,10 +144,12 @@ class IntraSliceScheduler():
             self.sinrModTable.append(100.00) # MCS 27
 
     def queuesOut(self,env): # ---------- PEM -------------
-        """This method manages the scheduler TB queue. This is a PEM method.
-
-        At each TTI it first updates the scheduler TB queue and then takes each TB  and sends it through the air interface.
-        TB are queued to retransmit with a BLER probability. """
+        """
+            This method manages the scheduler TB queue. This is a PEM method.
+            At each TTI it first updates the scheduler TB queue and then takes each TB  and sends it 
+            through the air interface.
+            TB are queued to retransmit with a BLER probability.
+        """
         while True:
             if self.dbMd:
                 self.printQstate(env)
@@ -187,9 +193,10 @@ class IntraSliceScheduler():
         return findP
 
     def queueUpdate(self):
-        """This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling bytes.
-
-        It makes Resource allocation and insert generated TBs into Scheduler queue in a TTI."""
+        """
+            This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling bytes.
+            It makes Resource allocation and insert generated TBs into Scheduler queue in a TTI.
+        """
         packts = 1
         self.ueLst = list(self.ues.keys())
         self.resAlloc(self.nrbUEmax)
@@ -242,7 +249,9 @@ class IntraSliceScheduler():
         return packets
 
     def dataPtoTB(self,u):
-        """This method takes UE data bytes, builds TB and puts them in the scheduler TB queue."""
+        """
+            This method takes UE data bytes, builds TB and puts them in the scheduler TB queue.
+        """
         n = self.ues[u].prbs
         [tbSbits,mod,bits,mcs__] = self.setMod(u,n)
         if self.schType[0:2]=='PF':
@@ -281,7 +290,9 @@ class IntraSliceScheduler():
         return r
 
     def resAlloc(self,Nrb):
-        """This method allocates cell PRBs to the different connected UEs."""
+        """
+            This method allocates cell PRBs to the different connected UEs.
+        """
         if len(list(self.ues.keys()))>0:
             for ue in list(self.ues.keys()): # TS 38.214 table 5.1.2.2.1-1  RBG size for configuration 2
                 if self.ues[ue].BWPs<37:
@@ -295,7 +306,9 @@ class IntraSliceScheduler():
         self.printResAlloc()
 
     def setMod(self,u,nprb): # AMC
-        """This method sets the MCS and TBS for each TB."""
+        """
+            This method sets the MCS and TBS for each TB.
+        """
         sinr = self.ues[u].radioLinks.linkQuality
         mcs_ = self.findMCS(sinr)
         if self.robustMCS and mcs_>2:
@@ -341,7 +354,8 @@ class IntraSliceScheduler():
     def setBLER(self,u): # BLER calculation
         self.ues[u].bler = 0.0
 
-    def insertTB(self,id,m,uu,type,pack_lst,n,s):
+    def insertTB(self,id,m,uu,type,pack_lst,n,s):  # insertTB(self.ues[u].TBid,'4-QAM',u,'Sig',p_l,self.ues[u].prbs,19)
+        # (self.ues[u].TBid,mod,u,'data',list_p,n,min(int(pks_s),tbSize))
         tb = TransportBlock(id,m,uu,type,pack_lst,n,s)
         succ = self.queue.insertTB(tb)
         if not(uu=='Broadcast'):

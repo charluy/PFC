@@ -1,6 +1,7 @@
 """
     This module contains the Cell class.
 """
+from distutils.log import error
 import os
 import sys
 import simpy #from SimPy.Simulation import * (simpy2.2)
@@ -9,6 +10,7 @@ import math
 import random
 from Slice import *
 from Scheds_Inter import *
+import json
 
 # Cell Class: cell description
 
@@ -137,8 +139,62 @@ class Cell(CellBase):
 
 class CellDeepMimo(CellBase):
     """
-        This class handles Cell 
+        This class has cell relative parameters for DeepMIMO scenarios.
+        In this case, each PRB must be modeled for scheduling porpuses.
     """
     def __init__(self, i, b, fr, dm, mBue, tdd, gr, schInter):
-        super(Cell, self).__init__(i, b, fr, dm, mBue, tdd, gr, schInter)
+        super(CellDeepMimo, self).__init__(i, b, fr, dm, mBue, tdd, gr, schInter)
+        
+    @staticmethod
+    def json_to_dict_config(config_path):
+        config_dict = json.load(open(config_path))
+        error_dict = {}
+
+        bandwidth = config_dict.get('bandwidth')
+        if (bandwidth is None) or (not isinstance(bandwidth, int)):
+            error_dict['bandwidth'] = f"{config_path} must contain bandwidt as integer in MHz"
+        
+        frecuency = config_dict.get('frecuency')
+        if (frecuency is None) or (not isinstance(frecuency, int)):
+            error_dict['frecuency'] = f"{config_path} must contain frecuency as integer in KHz"
+        
+        cant_prb = config_dict.get('cant_prb')
+        if (cant_prb is None) or (not isinstance(cant_prb, int)) or (cant_prb % 8 != 0):
+            error_dict['cant_prb'] = f"{config_path} must contain cant_prb as integer multiple of 8"
+        
+        is_dynamic = config_dict.get('is_dynamic')
+        if (is_dynamic is None) or (not isinstance(is_dynamic, bool)):
+            error_dict['is_dynamic'] = f"{config_path} must contain is_dynamic as boolean"
+        
+        refresh_rate = config_dict.get('refresh_rate')
+        if (refresh_rate is None) or (not isinstance(refresh_rate, int)):
+            error_dict['refresh_rate'] = f"{config_path} must contain refresh_rate as integer in ms"
+        
+        sim_duration = config_dict.get('sim_duration')
+        if (sim_duration is None) or (not isinstance(sim_duration, int)):
+            error_dict['sim_duration'] = f"{config_path} must contain sim_duration as integer in ms"
+        
+        ue_groups = config_dict.get('ue_groups')
+        if (ue_groups is None) or (not isinstance(ue_groups, dict)):
+            error_dict['ue_groups'] = f"{config_path} must contain ue_groups as dict"
+        else:
+            for key, value in ue_groups.items():
+                ue_group_error = CellDeepMimo.validate_ue_group_info(value)
+                if ue_group_error:
+                    error_dict[key] = ue_group_error
+        
+        if error_dict:
+            raise Exception(error_dict)
+
+        return config_dict
+    
+    @staticmethod
+    def validate_ue_group_info(ue_group_dict):
+        error_dict = {}
+
+        cant_ue = ue_group_dict.get('cant_ue')
+        if (cant_ue is None) or (not isinstance(cant_ue, int)):
+            error_dict['cant_ue'] = "UeGroup must contain cant_ue as integer"
+        
+        return error_dict
 

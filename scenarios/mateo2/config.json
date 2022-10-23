@@ -1,0 +1,17 @@
+{
+    "frecuency": 28,
+    "bandwidth": 50,
+    "cant_prb": 27,
+    "n_sc": 512,
+    "is_dynamic": true,
+    "refresh_rate": 1,
+    "sim_duration": 3,
+    "ue_groups": {
+        "UEgroup_0": {
+            "cant_ue": 10
+        },
+        "UEgroup_1": {
+            "cant_ue": 50
+        }
+    }
+}

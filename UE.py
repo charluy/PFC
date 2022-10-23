@@ -328,7 +328,9 @@ class UeBase:
                 yield env.timeout(nextPackTime)
     
     def connect(self,cl):
-        """This method creates bearers and bearers buffers."""
+        """
+            This method creates bearers and bearers buffers.
+        """
         bD = Bearer(1,9,self.packetFlows[0].type)
         self.addBearer(bD)
         self.queueDataPckt(cl)
@@ -398,13 +400,14 @@ class UeDeepMimo(UeBase):
         for a complex version of channel model given by DeepMIMO framework.
     """
     def __init__(self, id, ue_initial_sinr, ue_initial_rank, ue_initial_degree, cell):
-        super(UE, self).__init__(id, ue_initial_sinr)
+        super(UeDeepMimo, self).__init__(id, ue_initial_sinr)
         self.cell = cell
         self.radioLinks = RadioLinkDeepMimo(self, cell)
         self.update_radio_link_status(ue_initial_sinr, ue_initial_rank, ue_initial_degree)
     
     def update_radio_link_status(self, snr, rank, degree):
         self.radioLinks.update_link_status(snr, rank, degree)
+    
 
 
 

@@ -8,7 +8,9 @@ from utilities import Format
 
 
 class PacketFlow():
-	""" This class is used to describe UE traffic profile for the simulation."""
+	"""
+		This class is used to describe UE traffic profile for the simulation.
+	"""
 	def __init__(self,i,pckSize,pckArrRate,u,tp,slc):
 		self.id = i
 		self.tMed = 0
@@ -35,7 +37,10 @@ class PacketFlow():
 		qosFlowId = q
 
 	def queueAppPckt(self,env,tSim): # --- PEM -----
-		"""This method creates packets according to the packet flow traffic profile and stores them in the application buffer. """
+		"""
+			This method creates packets according to the packet flow traffic profile and stores them in 
+			the application buffer.
+		"""
 		ueN = int(self.ue[2:]) # number of UEs in simulation
 		self.tStart = (random.expovariate(1.0))
 		yield env.timeout(self.tStart) 	 # each UE start transmission after tStart
@@ -72,7 +77,9 @@ class PacketFlow():
 			self.meassuredKPI['Throughput'] = 0
 
 class Packet:
-	"""This class is used to model packets properties and behabiour."""
+	"""
+		This class is used to model packets properties and behabiour.
+	"""
 	def __init__(self,sn,s,qfi,u):
 		self.secNum = sn
 		self.size = s
@@ -84,7 +91,9 @@ class Packet:
 		print (Format.CYELLOW + Format.CBOLD + self.ue+ '+packet '+str(self.secNum)+' arrives at t ='+str(now()) + Format.CEND)
 
 class Bearer:
-	"""This class is used to model Bearers properties and behabiour."""
+	"""
+		This class is used to model Bearers properties and behabiour.
+	"""
 	def __init__(self,i,q,tp):
 		self.id = i
 		self.qci = q
@@ -92,7 +101,9 @@ class Bearer:
 		self.buffer = PcktQueue()
 
 class PcktQueue:
-	"""This class is used to model application and bearer buffers."""
+	"""
+		This class is used to model application and bearer buffers.
+	"""
 	def __init__(self):
 		self.pckts = deque([])
 

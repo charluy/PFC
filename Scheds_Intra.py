@@ -1,5 +1,7 @@
-"""This module contains different implemented intra slice schedulers.
-New schedulers should be implemented here following the current structure."""
+"""
+    This module contains different implemented intra slice schedulers.
+    New schedulers should be implemented here following the current structure.
+"""
 
 import math
 from IntraSliceSch import IntraSliceScheduler, Format
@@ -78,25 +80,28 @@ class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
             self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
 
 class TDD_Scheduler(IntraSliceScheduler): # TDD Sched ---------
-    """This class implements TDD intra slice scheduling."""
+    """
+        This class implements TDD intra slice scheduling.
+    """
     def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
         IntraSliceScheduler.__init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch)
         self.symMax = Smb
         self.queue = TBqueueTDD(self.symMax)
-        """TDD scheduler TB queue.
-
-        IntraSliceScheduler class attribute queue is overwriten here by a new type of queue
-        which handles symbols. This queue will contain as much TB as a slot can contain. If resource allocation is made
-        in terms of slots, it will contain 1 element, else, it will contain as much mini-slots as can be supported in 1 slot."""
+        """
+            TDD scheduler TB queue. IntraSliceScheduler class attribute queue is overwriten here by a new type of queue
+            which handles symbols. This queue will contain as much TB as a slot can contain. If resource allocation is made
+            in terms of slots, it will contain 1 element, else, it will contain as much mini-slots as can be supported in 1 slot.
+        """
 
     def resAlloc(self,band):
-        """This method implements resource allocation between the different connected UEs in a TDD slice.
-
-        It overwrites the resAlloc method from IntraSliceScheduler class.
-        In this Py5cheSim version TDD scheduler allocates all PRBs in the slice to a UE during 1 slot.
-        Future Py5cheSim versions could support mini-slot allocation by changing the UE symbol allocation in this method.
-        Note that in that case, althoug there is no need to update the queueUpdate method,
-        TBS calculation must be adjusted to avoid losing capacity when trunking the Nre__ value."""
+        """
+            This method implements resource allocation between the different connected UEs in a TDD slice.
+            It overwrites the resAlloc method from IntraSliceScheduler class.
+            In this Py5cheSim version TDD scheduler allocates all PRBs in the slice to a UE during 1 slot.
+            Future Py5cheSim versions could support mini-slot allocation by changing the UE symbol allocation in this method.
+            Note that in that case, althoug there is no need to update the queueUpdate method,
+            TBS calculation must be adjusted to avoid losing capacity when trunking the Nre__ value.
+        """
 
         if len(list(self.ues.keys()))>0:
             for ue in list(self.ues.keys()):
@@ -106,11 +111,12 @@ class TDD_Scheduler(IntraSliceScheduler): # TDD Sched ---------
         self.printResAlloc()
 
     def queueUpdate(self):
-        """This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling bytes.
-
-        It overwrites queueUpdate method from IntraSliceScheduler class, making Resource allocation in terms of slot Symbols
-        and insert generated TBs into Scheduler queue in a TTI. Althoug in this version Resource allocation is made by slot,
-        it is prepared to support mini-slot resource allocation by handling a scheduler TB queue in terms of symbols."""
+        """
+            This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling bytes.
+            It overwrites queueUpdate method from IntraSliceScheduler class, making Resource allocation in terms of slot Symbols
+            and insert generated TBs into Scheduler queue in a TTI. Althoug in this version Resource allocation is made by slot,
+            it is prepared to support mini-slot resource allocation by handling a scheduler TB queue in terms of symbols.
+        """
         packts = 1
         self.ueLst = list(self.ues.keys())
         self.resAlloc(self.nrbUEmax)
@@ -167,10 +173,11 @@ class TDD_Scheduler(IntraSliceScheduler): # TDD Sched ---------
         return r
 
     def dataPtoTB(self,u):
-        """This method takes UE data bytes, builds TB and puts them in the scheduler TB queue.
-
-        It overwrites dataPtoTB method from IntraSliceScheduler class. In this case it returns
-        the amount of allocated symbols to the UE."""
+        """
+            This method takes UE data bytes, builds TB and puts them in the scheduler TB queue.
+            It overwrites dataPtoTB method from IntraSliceScheduler class. In this case it returns
+            the amount of allocated symbols to the UE.
+        """
         n = self.ues[u].prbs
         [tbSbits,mod,bits,mcs__] = self.setMod(u,n)
         if self.schType[0:2]=='PF':
@@ -219,7 +226,9 @@ class TDD_Scheduler(IntraSliceScheduler): # TDD Sched ---------
             self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
 
 class TBqueueTDD: # TB queue!!!
-    """This class is used to model scheduler TB queue in TDD scheduler."""
+    """
+        This class is used to model scheduler TB queue in TDD scheduler.
+    """
     def __init__(self,symb):
         self.res = deque([])
         self.numRes = symb
