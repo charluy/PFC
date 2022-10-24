@@ -5,6 +5,69 @@ import math
 from IntraSliceSch import IntraSliceScheduler, Format
 from collections import deque
 
+class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
+    """This class implements Network Utility Maximization intra slice scheduling algorithm."""
+    def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
+        IntraSliceScheduler.__init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch)
+        
+    def resAlloc(self,band):
+        """This method implements Network Utility Maximization resource allocation between the different connected UEs.
+        This method overwrites the resAlloc method from IntraSliceScheduler class.
+
+        Network Utility Maximization scheduler allocates all PRBs in the slice to the UE with the biggest metric.
+        Metric for each group of UE is calculated as argmax of a special function."""
+        schd = self.schType[0:2]
+        if schd=='NUM' and len(list(self.ues.keys()))>0:
+            UE_sched_groups = self.set_sched_group(self.ues)
+            self.setUEfactor()
+            maxInd = self.findMaxFactor(UE_sched_groups)
+            for ue in list(self.ues.keys()):
+                if ue == maxInd:
+                    self.ues[ue].prbs = band
+                else:
+                    self.ues[ue].prbs = 0
+        # Print Resource Allocation
+        self.printResAlloc()
+    
+    def create_UE_sched_groups(ues):
+        for idue, ue in enumerate(ues):
+            ue.sched_group = idue//2
+
+    def setUEfactor(self, UE_sched_groups):
+        """This method sets the NUM metric for each UE_sched_group"""
+        for group in UE_sched_groups:
+            NUM_group_factor = self.compute_NUM_group_factor(group)
+            [tbs, mod, bi, mcs] = self.setMod(ue,self.nrbUEmax)
+            self.ues[ue].numFactor = NUM_group_factor
+
+    def findMaxFactor(self):
+        """This method finds and returns the UE with the highest metric"""
+        factorMax = 0
+        factorMaxInd = ''
+        for ue in list(self.ues.keys()):
+            if len(self.ues[ue].bearers[0].buffer.pckts)>0 and self.ues[ue].pfFactor>factorMax:
+                factorMax = self.ues[ue].pfFactor
+                factorMaxInd = ue
+        if factorMaxInd=='':
+            ue = list(self.ues.keys())[self.ind_u]
+            q = 0
+            while len(self.ues[ue].bearers[0].buffer.pckts)==0 and q<len(self.ues):
+                self.updIndUE()
+                ue = list(self.ues.keys())[self.ind_u]
+                q = q + 1
+            factorMaxInd = ue
+
+        return factorMaxInd
+
+    def printResAlloc(self):
+        if self.dbMd:
+            self.printDebData('+++++++++++ Res Alloc +++++++++++++'+'<br>')
+            self.printDebData('PRBs: '+str(self.nrbUEmax)+'<br>')
+            resAllocMsg = ''
+            for ue in list(self.ues.keys()):
+                resAllocMsg = resAllocMsg + ue +' '+ str(self.ues[ue].pfFactor)+' '+str(self.ues[ue].prbs)+ ' '+str(self.ues[ue].num)+' '+ str(self.ues[ue].lastDen)+'<br>'
+            self.printDebData(resAllocMsg)
+            self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
 class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
     """This class implements Proportional Fair intra slice scheduling algorithm."""
     def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
