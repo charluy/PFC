@@ -21,9 +21,9 @@ from packet import (
 
 DEEPMIMO_DATAFILE_PREFIX = 'Data_'
 DEEPMIMO_DATAFILE_SUFFIX = '.npz'
-DEEPMIMO_DATAFILE_ARR_NAME_SNR = 'arr_0'
-DEEPMIMO_DATAFILE_ARR_NAME_RANK = 'arr_1'
-DEEPMIMO_DATAFILE_ARR_NAME_DEGREE = 'arr_2'
+DEEPMIMO_DATAFILE_ARR_NAME_SNR = 'SNR'
+DEEPMIMO_DATAFILE_ARR_NAME_RANK = 'rank'
+DEEPMIMO_DATAFILE_ARR_NAME_DEGREE = 'DoA'
 
 
 class UeGroupBase:
@@ -81,7 +81,7 @@ class UeGroupBase:
 
         for j in range (num_users):
             ue_name = 'ue' + str(j+1)
-            users.append(UE(ue_name,float(sinr_0[j]),0,20))
+            users.append(UE(ue_name,float(sinr_0[j])))
             flows.append(PacketFlow(1,p_size,p_arr_rate,ue_name,dir,self.label))
             users[j].addPacketFlow(flows[j])
             users[j].packetFlows[0].setQosFId(1)
@@ -186,40 +186,57 @@ class UeGroupDeepMimo(UeGroupBase):
             cell, t_sim, measInterv, env
         )
         self.ue_group_dir = ueg_dir.strip('/')
-        self.id_ant = cell.id_ant  # TODO: Borrar cuando Mateo haga el cambio.
         self.current_scene = 0
         self.is_dynamic = is_dynamic
         self.scene_duration = scene_duration
 
-        self.sinr_0DL, _, _ = self.read_ues_channel_status(self.num_usersDL)
-        self.sinr_0DL = self.sinr_0DL[:,0]
-
-        self.sinr_0UL, _, _ = self.read_ues_channel_status(self.num_usersDL)
-        self.sinr_0UL = self.sinr_0UL[:,0]
+        self.sinr_0DL, self.rank_0DL, self.degrees_0DL = self.read_ues_channel_status(self.num_usersDL)
+        self.sinr_0UL, self.rank_0UL, self.degrees_0UL = self.read_ues_channel_status(self.num_usersUL)
 
         if self.num_usersDL>0:
             self.usersDL, self.flowsDL = self.initializeUEs(
-				'DL', self.num_usersDL, self.p_sizeDL, self.p_arr_rateDL, self.sinr_0DL, cell,
+				'DL', self.num_usersDL, self.p_sizeDL, self.p_arr_rateDL, cell,
 				t_sim, measInterv, env
 			)
         if self.num_usersUL>0:
             self.usersUL, self.flowsUL = self.initializeUEs(
-				'UL', self.num_usersUL, self.p_sizeUL, self.p_arr_rateUL, self.sinr_0UL, cell,
+				'UL', self.num_usersUL, self.p_sizeUL, self.p_arr_rateUL, cell,
 				t_sim, measInterv, env
 			)
 		
         self.set_initial_snr()
-    
+
     def initializeUEs(
-        self, dir, num_users, p_size, p_arr_rate, sinr_0, cell, t_sim, measInterv, env
+        self, dir, num_users, p_size, p_arr_rate, cell, t_sim, measInterv, env
     ):
-        users, flows = super(UeGroupDeepMimo, self).initializeUEs(
-            dir, num_users, p_size, p_arr_rate, sinr_0, cell, t_sim, measInterv, env
-        )
+        """
+            This method creates the UEs with its traffic flows, and initializes the asociated PEM methods
+        """
+        users = []
+        flows = []
+
+        # (self, id, ue_initial_sinr, ue_initial_rank, ue_initial_degree)
+        # super(UeDeepMimo, self).__init__(id, ue_initial_sinr)
+
+        initial_snrs = self.sinr_0DL if dir == 'DL' else self.sinr_0UL
+        initial_ranks = self.rank_0DL if dir == 'DL' else self.rank_0UL
+        initial_degrees = self.degrees_0DL if dir == 'DL' else self.degrees_0UL
+
+        for j in range (num_users):
+            ue_name = 'ue' + str(j+1)
+            users.append(UeDeepMimo(ue_name, initial_snrs[j,:], initial_ranks[j,:], initial_degrees[j,:]))
+            flows.append(PacketFlow(1,p_size,p_arr_rate,ue_name,dir,self.label))
+            users[j].addPacketFlow(flows[j])
+            users[j].packetFlows[0].setQosFId(1)
+            # Flow, UE and RL PEM activation
+            env.process(users[j].packetFlows[0].queueAppPckt(env,tSim=t_sim))
+            env.process(users[j].receivePckt(env,c=cell))
+        
         if self.is_dynamic:
             env.process(self.pem_update_ue_group_rl(env, t_sim))
+
         return users,flows
-    
+
     def set_initial_snr(self):
         """
             This method sets the initial SNR value
@@ -235,9 +252,9 @@ class UeGroupDeepMimo(UeGroupBase):
         file_path = self.ue_group_dir + '/' + file_name
         ueg_channel_status = np.load(file_path)
 
-        snrs = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_SNR][0:cant_ue,:,0]  # TODO: Se va a sacar la dim de la BS
-        ranks = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_RANK][0:cant_ue,:,0]  # TODO: Se va a sacar la dim de la BS
-        degrees = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_DEGREE][0:cant_ue,:,0]  # TODO: Se va a sacar la dim de la BS
+        snrs = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_SNR][0:cant_ue,:]
+        ranks = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_RANK][0:cant_ue,:]
+        degrees = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_DEGREE][0:cant_ue,:]
 
         return snrs, ranks, degrees
     
@@ -262,11 +279,11 @@ class UeGroupDeepMimo(UeGroupBase):
 
         if self.num_usersDL > 0:
             for i, usr in enumerate(self.usersDL):
-                usr.radioLinks.update_link_quality_from_value(snrs[i,0])
+                usr.radioLinks.update_link_status(snrs[i,:], ranks[i,:], degrees[i,:])
 
         if self.num_usersUL > 0:
             for i, usr in enumerate(self.usersUL):
-                usr.radioLinks.update_link_quality_from_value(snrs[i,0])
+                usr.radioLinks.update_link_status(snrs[i,:], ranks[i,:], degrees[i,:])
 
 
 # UE class: terminal description
@@ -275,7 +292,7 @@ class UeBase:
     """
         This class is used to model UE behabiour and relative properties
     """
-    def __init__(self, id, ue_initial_sinr):
+    def __init__(self, id):
         self.id = id
         self.state = 'RRC-IDLE'
         self.packetFlows = []
@@ -297,6 +314,9 @@ class UeBase:
         self.TXedTB = 1
         self.lostTB = 0
         self.symb = 0
+
+        self.prbs = 0
+        self.BWPs = 20
     
     def addPacketFlow(self, pckFl):
         self.packetFlows.append(pckFl)
@@ -387,11 +407,9 @@ class UE(UeBase):
         This class is used to model UE behabiour and relative properties
         for a simplified version of channel model.
     """
-    def __init__(self, id, ue_initial_sinr, p, npM):
-        super(UE, self).__init__(id, ue_initial_sinr)
+    def __init__(self, id, ue_initial_sinr):
+        super(UE, self).__init__(id)
         self.radioLinks = RadioLink(1, ue_initial_sinr, self.id)
-        self.prbs = p
-        self.BWPs = npM
 
 
 class UeDeepMimo(UeBase):
@@ -399,10 +417,9 @@ class UeDeepMimo(UeBase):
         This class is used to model UE behabiour and relative properties
         for a complex version of channel model given by DeepMIMO framework.
     """
-    def __init__(self, id, ue_initial_sinr, ue_initial_rank, ue_initial_degree, cell):
-        super(UeDeepMimo, self).__init__(id, ue_initial_sinr)
-        self.cell = cell
-        self.radioLinks = RadioLinkDeepMimo(self, cell)
+    def __init__(self, id, ue_initial_sinr, ue_initial_rank, ue_initial_degree):
+        super(UeDeepMimo, self).__init__(id)
+        self.radioLinks = RadioLinkDeepMimo(self)
         self.update_radio_link_status(ue_initial_sinr, ue_initial_rank, ue_initial_degree)
     
     def update_radio_link_status(self, snr, rank, degree):

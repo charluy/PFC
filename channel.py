@@ -55,9 +55,8 @@ class RadioLinkDeepMimo:
     """
         This class is used to model radio link properties and behabiour for DeepMIMO scenarios.
     """
-    def __init__(self, ue, cell):
+    def __init__(self, ue):
         self.ue = ue
-        self.cell = cell
         self.snr = []
         self.rank = []
         self.degree = []
@@ -68,7 +67,6 @@ class RadioLinkDeepMimo:
         self.rank = rank
         self.degree = degree
         self.linkQuality = np.mean(snr)
-
 
 
 class DeepMimoChannel():

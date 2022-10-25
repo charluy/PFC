@@ -9,17 +9,21 @@ from collections import deque
 from utilities import Format
 
 class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
-    """This class implements Proportional Fair intra slice scheduling algorithm."""
+    """
+        This class implements Proportional Fair intra slice scheduling algorithm.
+    """
     def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
         IntraSliceScheduler.__init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch)
         self.promLen = 30
         """Past Throughput average length considered in PF metric"""
-    def resAlloc(self,band):
-        """This method implements Proportional Fair resource allocation between the different connected UEs.
-        This method overwrites the resAlloc method from IntraSliceScheduler class.
 
-        Proportional Fair scheduler allocates all PRBs in the slice to the UE with the biggest metric.
-        Metric for each UE is calculated as PossibleUEtbs/AveragePastTbs."""
+    def resAlloc(self,band):
+        """
+            This method implements Proportional Fair resource allocation between the different connected UEs.
+            This method overwrites the resAlloc method from IntraSliceScheduler class.
+            Proportional Fair scheduler allocates all PRBs in the slice to the UE with the biggest metric.
+            Metric for each UE is calculated as PossibleUEtbs/AveragePastTbs.
+        """
         schd = self.schType[0:2]
         if schd=='PF' and len(list(self.ues.keys()))>0:
             exp_num = float(self.schType[2])
@@ -39,7 +43,9 @@ class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
         self.printResAlloc()
 
     def setUEfactor(self, exp_n, exp_d):
-        """This method sets the PF metric for each UE"""
+        """
+            This method sets the PF metric for each UE.
+        """
         for ue in list(self.ues.keys()):
             sumTBS = 0
             for t in self.ues[ue].pastTbsz:
@@ -51,7 +57,9 @@ class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
             self.ues[ue].num = tbs
 
     def findMaxFactor(self):
-        """This method finds and returns the UE with the highest metric"""
+        """
+            This method finds and returns the UE with the highest metric
+        """
         factorMax = 0
         factorMaxInd = ''
         for ue in list(self.ues.keys()):

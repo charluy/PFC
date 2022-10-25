@@ -146,9 +146,8 @@ class IntraSliceScheduler():
     def queuesOut(self,env): # ---------- PEM -------------
         """
             This method manages the scheduler TB queue. This is a PEM method.
-            At each TTI it first updates the scheduler TB queue and then takes each TB  and sends it 
-            through the air interface.
-            TB are queued to retransmit with a BLER probability.
+            At each TTI it first updates the scheduler TB queue and then takes each TB and sends it 
+            through the air interface. TB are queued to retransmit with a BLER probability.
         """
         while True:
             if self.dbMd:
@@ -220,6 +219,7 @@ class IntraSliceScheduler():
                     if self.dbMd:
                         self.printQtb() # Print TB queue in debbug mode
             self.updIndUE()
+            
             packts = self.updSumPcks()
 
     def rrcUncstSigIn(self,u):
@@ -354,8 +354,10 @@ class IntraSliceScheduler():
     def setBLER(self,u): # BLER calculation
         self.ues[u].bler = 0.0
 
-    def insertTB(self,id,m,uu,type,pack_lst,n,s):  # insertTB(self.ues[u].TBid,'4-QAM',u,'Sig',p_l,self.ues[u].prbs,19)
-        # (self.ues[u].TBid,mod,u,'data',list_p,n,min(int(pks_s),tbSize))
+    def insertTB(self,id,m,uu,type,pack_lst,n,s):
+        # Ejemplos de uso: TODO: Borrar.
+        #   self.insertTB(self.ues[u].TBid,'4-QAM',u,'Sig',p_l,self.ues[u].prbs,19)
+        #   self.insertTB(self.ues[u].TBid,mod,u,'data',list_p,n,min(int(pks_s),tbSize))
         tb = TransportBlock(id,m,uu,type,pack_lst,n,s)
         succ = self.queue.insertTB(tb)
         if not(uu=='Broadcast'):

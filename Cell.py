@@ -24,7 +24,6 @@ class CellBase:
             This method creates a cell instance. It initialices cell parameters and interSliceScheduler
             according to the algorithm specified on the sch attribute.
         """
-        self.id_ant = 0  # TODO: Borrar cuando Mateo haga el cambio.
         self.id = i
         self.bw = b
         self.inactTimer = 3000
@@ -32,6 +31,10 @@ class CellBase:
         self.maxBuffUE = mBue
         """Maximum bearer buffer size by UE, in bytes"""
         self.slicesStsts = {}
+
+        self.frequency_range = fr
+        self.tdd = tdd
+        self.granularity = gr  # interSlice scheduler time granularity
     
     def updateStsts(self,env,interv,tSim): # ---------- PEM -------------
         """

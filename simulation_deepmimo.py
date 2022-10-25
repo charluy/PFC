@@ -18,7 +18,7 @@ DEEPMIMO_CONFIG_FILE = 'config.json'
 #              Cell & Simulation parameters
 #------------------------------------------------------------------------------------------------------
 
-scenario_dir = "scenarios/mateo/"
+scenario_dir = "scenarios/mateo3/"
 
 general_config = json.load(open(scenario_dir + DEEPMIMO_CONFIG_FILE))
 # bandwidth = general_config["bandwidth"]
