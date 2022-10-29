@@ -113,3 +113,37 @@ class Slice:
             self.schedulerDL.queue.updateSize(self.PRBs)
             if self.label != 'LTE':
                 self.schedulerUL.queue.updateSize(self.PRBs)
+
+
+class SliceDeepMimo(Slice):
+    """
+        This class has Slice relative parameters with extra atributes for DeepMimo support. 
+        Is used to implement the mapping between service requirements and slice configuration.
+    """
+    def __init__(self,dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,tdd,sch):
+
+        super(SliceDeepMimo, self).__init__(dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,tdd,sch)
+
+        self.PRBs = 0
+        self.assigned_prbs = []
+    
+    def createSliceSched(self, dir, tddSymb):
+        """
+            This method initializes and returns slice UL or DL scheduler for DeepMimo support. 
+            Scheduler algorithm is selected according to the Slice attribute schType.
+        """
+
+        # TODO: Ver si el scheduler es TDD o FDD.
+
+        scheduler = None
+
+        if self.tdd:
+            if self.schType[0:2] == 'MM':
+                pass
+
+        else:  # FDD Schedulers
+           if self.schType[0:2] == 'MM':
+                pass
+
+        return scheduler
+

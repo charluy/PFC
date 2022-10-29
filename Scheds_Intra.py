@@ -8,6 +8,11 @@ from IntraSliceSch import IntraSliceScheduler, Format
 from collections import deque
 from utilities import Format
 
+
+class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
+    pass
+
+
 class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
     """
         This class implements Proportional Fair intra slice scheduling algorithm.
