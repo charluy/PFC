@@ -18,28 +18,29 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
         Metric for each group of UE is calculated as argmax of a special function."""
         schd = self.schType[0:2]
         if schd=='NUM' and len(list(self.ues.keys()))>0:
-            UE_sched_groups = self.set_sched_group()
+            UE_sched_groups = self.set_sched_groups()
             self.setUEfactor()
             maxInd = self.findMaxFactor(UE_sched_groups)
             for ue in list(self.ues.keys()):
                 if ue == maxInd:
                     self.ues[ue].prbs = band
+                    # self.ues[ue].prbs = [1, 5, 7] 
                 else:
                     self.ues[ue].prbs = 0
         # Print Resource Allocation
         self.printResAlloc()
     
-    def set_sched_group(self):
+    def set_sched_groups(self):
         """This method divides the UEs in sched groups"""
         max_index_groups = 0
         for idue, ue in enumerate(self.ues.keys()):
-            ue.sched_group = idue//2
+            ue.sched_groups[0].group_number = idue//2
 
     def find_groups(self):
         """This method returns the amount of sched groups"""
         max_index_groups = 0
         for ue in self.ues.keys():
-            max_index_groups = ue.sched_group if ue.sched_group > max_index_groups else max_index_groups = max_index_groups
+            if ue.sched_groups[-1].group_number > max_index_groups : max_index_groups = ue.sched_groups[-1].group_number
         
         return max_index_groups
     
@@ -48,7 +49,7 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
         ues_from_group_X = []
 
         for ue in self.ues.keys:
-            if ue.sched_group == X: ues_from_group_X.append(ue)
+            if ue.sched_groups[X].group_number == X: ues_from_group_X.append(ue)
 
         return ues_from_group_X
 
@@ -60,7 +61,7 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
             #[tbs, mod, bi, mcs] = self.setMod(ue,self.nrbUEmax) DON'T KNOW IF NECESSARY
             for ue in sched_group: 
                 #[tbs, mod, bi, mcs] = self.setMod(ue,self.nrbUEmax) DON'T KNOW IF NECESSARY
-                self.ues[ue].numFactor = NUM_group_factor
+                self.ues[ue].sched_groups[i].numFactor = NUM_group_factor
 
     def compute_NUM_factor(self):
         """This method computes the NUM_factor for a given sched_group"""
@@ -86,6 +87,10 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
 
         return factorMaxInd
 
+        self.ues[ue].radioLinks.snr
+        self.ues[ue].radioLinks.rank
+        self.ues[ue].radioLinks.degree
+
     def printResAlloc(self):
         if self.dbMd:
             self.printDebData('+++++++++++ Res Alloc +++++++++++++'+'<br>')
@@ -95,7 +100,7 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
                 resAllocMsg = resAllocMsg + ue +' '+ str(self.ues[ue].pfFactor)+' '+str(self.ues[ue].prbs)+ ' '+str(self.ues[ue].num)+' '+ str(self.ues[ue].lastDen)+'<br>'
             self.printDebData(resAllocMsg)
             self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
-            
+
 class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
     """This class implements Proportional Fair intra slice scheduling algorithm."""
     def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
