@@ -1,5 +1,7 @@
-"""This module contains different implemented inter slice schedulers.
-New schedulers should be implemented here following the current structure."""
+"""
+    This module contains different implemented inter slice schedulers.
+    New schedulers should be implemented here following the current structure.
+"""
 import math
 from InterSliceSch import InterSliceScheduler
 from Slice import *

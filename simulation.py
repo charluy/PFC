@@ -100,18 +100,11 @@ UEgroups = [UEgroup0]#,UEgroup2]#,UEgroup3]#,UEgroup4]
 """UE group list for the configured simulation"""
 #           Slices creation
 for ueG in UEgroups:
-    interSliceSche1.createSlice(ueG.req['reqDelay'],
-    ueG.req['reqThroughputDL'],
-    ueG.req['reqThroughputUL'],
-    ueG.req['reqAvailability'],
-    ueG.num_usersDL,
-    ueG.num_usersUL,
-    band,
-    debMode,
-    ueG.mmMd,
-    ueG.lyrs,
-    ueG.label,
-    ueG.sch)
+    interSliceSche1.createSlice(
+        ueG.req['reqDelay'], ueG.req['reqThroughputDL'], ueG.req['reqThroughputUL'],
+        ueG.req['reqAvailability'], ueG.num_usersDL, ueG.num_usersUL, band, debMode,
+        ueG.mmMd, ueG.lyrs, ueG.label, ueG.sch
+    )
 
 #      Schedulers activation (inter/intra)
 

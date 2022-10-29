@@ -190,8 +190,7 @@ class UeGroupDeepMimo(UeGroupBase):
         self.is_dynamic = is_dynamic
         self.scene_duration = scene_duration
 
-        self.sinr_0DL, self.rank_0DL, self.degrees_0DL = self.read_ues_channel_status(self.num_usersDL)
-        self.sinr_0UL, self.rank_0UL, self.degrees_0UL = self.read_ues_channel_status(self.num_usersUL)
+        self.setInitialSINR()
 
         if self.num_usersDL>0:
             self.usersDL, self.flowsDL = self.initializeUEs(
@@ -203,8 +202,19 @@ class UeGroupDeepMimo(UeGroupBase):
 				'UL', self.num_usersUL, self.p_sizeUL, self.p_arr_rateUL, cell,
 				t_sim, measInterv, env
 			)
-		
-        self.set_initial_snr()
+    
+    def setInitialSINR(self):
+        """
+            This method is only used to set self.sinr_0DL and self.sinr_0UL as single value
+            for compatibility reasons.
+        """
+        if self.num_usersDL>0:
+            initial_snr_dl, _, _ = self.read_ues_channel_status(self.num_usersDL)
+            self.sinr_0DL = [np.mean(initial_snr_dl[ue,:]) for ue in range(0,self.num_usersDL)]
+
+        if self.num_usersUL>0:
+            initial_snr_ul, _, _ = self.read_ues_channel_status(self.num_usersUL)
+            self.sinr_0UL = [np.mean(initial_snr_ul[ue,:]) for ue in range(0,self.num_usersUL)]
 
     def initializeUEs(
         self, dir, num_users, p_size, p_arr_rate, cell, t_sim, measInterv, env
@@ -215,12 +225,8 @@ class UeGroupDeepMimo(UeGroupBase):
         users = []
         flows = []
 
-        # (self, id, ue_initial_sinr, ue_initial_rank, ue_initial_degree)
-        # super(UeDeepMimo, self).__init__(id, ue_initial_sinr)
-
-        initial_snrs = self.sinr_0DL if dir == 'DL' else self.sinr_0UL
-        initial_ranks = self.rank_0DL if dir == 'DL' else self.rank_0UL
-        initial_degrees = self.degrees_0DL if dir == 'DL' else self.degrees_0UL
+        cant_ue_to_read = self.num_usersDL if dir == 'DL' else self.num_usersUL
+        initial_snrs, initial_ranks, initial_degrees = self.read_ues_channel_status(cant_ue_to_read)
 
         for j in range (num_users):
             ue_name = 'ue' + str(j+1)
@@ -236,13 +242,6 @@ class UeGroupDeepMimo(UeGroupBase):
             env.process(self.pem_update_ue_group_rl(env, t_sim))
 
         return users,flows
-
-    def set_initial_snr(self):
-        """
-            This method sets the initial SNR value
-        """
-        # TODO: estamos usando solo un snr en vez de todos los del prb
-        self.update_ue_group_rl()
     
     def read_ues_channel_status(self, cant_ue, time=0):
         """
