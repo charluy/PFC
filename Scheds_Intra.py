@@ -30,7 +30,7 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
         # Print Resource Allocation
         self.printResAlloc()
     
-    def set_sched_groups(self):
+    def set_sched_groups_easy_division(self):
         """This method divides the UEs in sched groups"""
         max_index_groups = 0
         for idue, ue in enumerate(self.ues.keys()):
@@ -63,10 +63,35 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
                 #[tbs, mod, bi, mcs] = self.setMod(ue,self.nrbUEmax) DON'T KNOW IF NECESSARY
                 self.ues[ue].sched_groups[i].numFactor = NUM_group_factor
 
-    def compute_NUM_factor(self):
+    def compute_NUM_factor(self, sched_group):
         """This method computes the NUM_factor for a given sched_group"""
-        numfactor = 0
+        numfactor = []
+
+        for PRB in PRBs:
+            for ue in sched_group:
+                numfactor[PRB] = numfactor[PRB] + self.compute_UE_throughput(ue, PRB, BER)*(1/self.compute_sched_group_throughput(ue, sched_group))
+        
         return numfactor
+
+    def compute_sched_group_throughput(self, sched_group):
+        """This method returns the sum of the throughput in UEs PRBs for all users in the sched group"""
+        sched_group_throughput = []
+        for ue in sched_group:
+            for i in range(0, self.find_groups):
+                for PRB in PRBs:
+                    sched_group_throughput[ue] = sched_group_throughput[ue] + self.compute_UE_throughput(ue, PRB, BER)
+        return sched_group_throughput
+
+    def compute_UE_throughput(ue, PRB, BER):
+        """This method returns the UE throughput for a given PRB"""
+        B = -1.5/math.log(5*BER)
+        N_RE = ue.mod
+        throughput= ue.radioLinks.rank*N_RE*math.log(1+B*ue.radioLinks[PRB].snr, 2)
+        return throughput
+
+    def compute_utility_function(self):
+        utility_function = 0
+        return utility_function
 
     def findMaxFactor(self):
         """This method finds and returns the UE with the highest metric"""
@@ -87,8 +112,6 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
 
         return factorMaxInd
 
-        self.ues[ue].radioLinks.snr
-        self.ues[ue].radioLinks.rank
         self.ues[ue].radioLinks.degree
 
     def printResAlloc(self):
