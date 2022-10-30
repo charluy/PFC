@@ -125,7 +125,10 @@ class SliceDeepMimo(Slice):
         super(SliceDeepMimo, self).__init__(dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,tdd,sch)
 
         self.PRBs = 0
-        self.assigned_prbs = []
+        """ Cant of real PRBs assigned to the slice (not the base PRBs). """
+
+        self.assigned_base_prbs = []
+        """ List of base PRBs index assigned to the slice. """
     
     def createSliceSched(self, dir, tddSymb):
         """
@@ -133,17 +136,23 @@ class SliceDeepMimo(Slice):
             Scheduler algorithm is selected according to the Slice attribute schType.
         """
 
-        # TODO: Ver si el scheduler es TDD o FDD.
-
         scheduler = None
 
         if self.tdd:
-            if self.schType[0:2] == 'MM':
-                pass
+            raise Exception("There is no TDD scheduler avaiable for DeepMimo scenarios.")
 
         else:  # FDD Schedulers
-           if self.schType[0:2] == 'MM':
-                pass
+            if self.schType[0:2] == 'MM':
+                pass  # TODO: instanciar el scheduler.
+            else:
+                raise Exception(f"IntraSliceScheduler type {self.schType} doesn't exist")
 
         return scheduler
+    
+    def updateConfig(self, assigned_base_prb_list):
+        """
+            This method updates Slice allocated PRBs.
+        """
+        self.assigned_base_prbs = assigned_base_prb_list
+        self.PRBs = int(len(assigned_base_prb_list)/self.ttiBms)
 

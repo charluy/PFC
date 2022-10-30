@@ -192,11 +192,6 @@ class InterSliceSchedulerDeepMimo(InterSliceScheduler):
         cant_prb_groups_assigned = [0 for slice in range(0, cant_slices)]
         assigned_prbs = []  # Is a list of lists.
 
-        print(f"cant_prbs_groups: {cant_prbs_groups}")
-        print(f"cant_prb_groups_assigned: {cant_prb_groups_assigned}")
-        print(f"assigned_prbs: {assigned_prbs}")
-        print("\n\n")
-
         while cant_prbs_groups > 0:
             cant_prb_groups_assigned[self.assignation_start_index] += 1
             self.assignation_start_index = (self.assignation_start_index + 1) % cant_slices
@@ -209,11 +204,6 @@ class InterSliceSchedulerDeepMimo(InterSliceScheduler):
             prbs_to_slice = [prb for prb in range(first_prb, last_prb)]
             assigned_prbs.append(prbs_to_slice)
             first_prb = last_prb
-        
-        print(f"cant_prbs_groups: {cant_prbs_groups}")
-        print(f"cant_prb_groups_assigned: {cant_prb_groups_assigned}")
-        print(f"assigned_prbs: {assigned_prbs}")
-        print("\n\n")
         
         return assigned_prbs
 

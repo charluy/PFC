@@ -99,6 +99,9 @@ class Bearer:
 		self.qci = q
 		self.type = tp
 		self.buffer = PcktQueue()
+	
+	def has_packets(self):
+		return not self.buffer.is_empty()
 
 class PcktQueue:
 	"""
@@ -116,3 +119,6 @@ class PcktQueue:
 	def removePckt(self):
 		if len(self.pckts)>0:
 			return self.pckts.popleft()
+	
+	def is_empty(self):
+		return len(self.pckts) == 0

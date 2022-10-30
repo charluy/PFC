@@ -67,6 +67,17 @@ class RadioLinkDeepMimo:
         self.rank = rank
         self.degree = degree
         self.linkQuality = np.mean(snr)
+    
+    def get_radio_link_quality_over_assigned_prbs(self) -> tuple:
+        assigned_prb_list = self.ue.assigned_base_prbs
+        snr = 0
+        
+        for prb_index in assigned_prb_list:
+            snr += self.snr[prb_index]
+        
+        snr = float(snr)/len(assigned_prb_list)
+
+        return (snr, self.ue.assigned_layers)
 
 
 class DeepMimoChannel():

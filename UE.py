@@ -420,10 +420,13 @@ class UeDeepMimo(UeBase):
         super(UeDeepMimo, self).__init__(id)
         self.radioLinks = RadioLinkDeepMimo(self)
         self.update_radio_link_status(ue_initial_sinr, ue_initial_rank, ue_initial_degree)
+        self.assigned_base_prbs = []
+        self.assigned_layers = 0
     
     def update_radio_link_status(self, snr, rank, degree):
         self.radioLinks.update_link_status(snr, rank, degree)
     
-
+    def has_packet_in_bearer(self):
+        return self.bearers[0].has_packets()
 
 

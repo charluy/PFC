@@ -822,6 +822,25 @@ class TBqueue: # TB queue!!!
     def updateSize(self,newSize):
         self.numRB = newSize
 
+
+class TbQueueDeepMimo():
+    """
+        This class is used to model scheduler TB queue for DeepMimo scenarios.
+        In this case the queue shouldn't have a maximum size.
+    """
+    def __init__(self):
+        self.res = deque([])
+
+    def insertTB(self,tb):
+        self.res.append(tb)
+        return True
+
+    def removeTB(self):
+        if len(self.res)>0:
+            return self.res.popleft()
+
+
+
 class TransportBlock:
     """This class is used to describe TB properties and behabiour."""
     def __init__(self,i,m,u,typ,p_l,nrb,sz):

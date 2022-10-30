@@ -10,7 +10,101 @@ from utilities import Format
 
 
 class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
-    pass
+    def __init__(self, ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch, slice):
+        
+        super(IntraSliceSchedulerDeepMimo, self).__init__(
+            ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch
+        )
+        self.slice = slice
+    
+    def resAlloc(self):
+        """
+            This method allocates cell specifics PRBs to the different connected UEs.
+        """
+
+        # TODO: Completar. 
+        # Ver de donde saco la lista de prbs base asignados a la slice.
+        # Tengo que guardar los resultados en los usuarios:
+        #   - assigned_prbs: lista de los prb base asignados a los usuarios, asi despues se puede ver el snr.
+        #   - PRBs: por compatibilidad, es la cantidad de PRBs asignados = cant_prbs_base_asignado/factor.
+        #   - assigned_layers: la cantidad de layers que se le dio a ese usuario.
+
+        base_prbs_to_assign = self.slice.assigned_base_prbs
+        cant_prb_in_a_group = self.ttiByms
+        ue_with_bearer_packets = [self.ues[ue_key] for ue_key in list(self.ues.keys()) if self.ues[ue_key].has_packet_in_bearer()]
+
+        # Esto esta mal, pero para probar a cada ue le doy todas los prbs (repito):
+        for ue in ue_with_bearer_packets:
+            ue.assigned_base_prbs = base_prbs_to_assign
+            ue.assigned_layers = 2
+            ue.prbs = len(ue.assigned_base_prbs)/cant_prb_in_a_group
+
+        # Print Resource Allocation
+        self.printResAlloc()
+
+    def queueUpdate(self):
+        """
+            This method overrides the one in the parent class. 
+            This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling 
+            bytes without verify that the resource blocks used match with the assigned ones.
+            It makes Resource allocation and insert generated TBs into Scheduler queue in a TTI.
+        """
+
+        self.ueLst = list(self.ues.keys())
+        self.resAlloc(self.nrbUEmax)
+        
+        # RB limit no va mas, ahora se confia en la asignacion de resAlloc.
+
+        for ue_key in self.ueLst:
+
+            ue = self.ues[ue_key]
+            ue_has_packets_in_bearer = ue.has_packet_in_bearer()
+            ue_has_prb_assigned = ue.prbs > 0
+            ue_has_tb_to_retransmit = len(ue.pendingTB) > 0
+
+            self.printDebDataDM('---------------- '+ue+' ------------------<br>') # print more info in debbug mode
+
+            if ue_has_prb_assigned and ue_has_packets_in_bearer:
+
+                if not ue_has_tb_to_retransmit:
+                    self.dataPtoTB(ue_key)
+                else:
+                    self.retransmitTB(ue_key)
+
+                if self.dbMd:
+                    self.printQtb() # Print TB queue in debbug mode
+    
+    def setMod(self,u,nprb):
+        """
+            This method sets the MCS and TBS for each TB over the specifics PRBs frequencies.
+        """
+        snr, _ = self.ues[u].radioLinks.get_radio_link_quality_over_assigned_prbs()
+        mcs_ = self.findMCS(snr)
+        if self.robustMCS and mcs_>2:
+            mcs_ = mcs_-2
+        mo = self.modTable[mcs_]['mod']
+        mcsi = self.modTable[mcs_]['mcsi']
+        Qm = self.modTable[mcs_]['bitsPerSymb']
+        R = self.modTable[mcs_]['codeRate']
+        # Find TBsize
+        if self.band == 'n257' or self.band == 'n258' or self.band == 'n260' or self.band == 'n261':
+            fr = 'FR2'
+        else:
+            fr = 'FR1'
+        if nprb>0:
+            tbls = self.setTBS(R,Qm,self.direction,u,fr,nprb) # bits
+        else:
+            tbls = 0 # PF Scheduler
+        return [tbls, mo, Qm, mcsi]
+    
+    def setTBS(self, r, qm, uldl, ue, fr, nprb): # TS 38.214 procedure
+        OHtable = {'DL':{'FR1':0.14,'FR2':0.18},'UL':{'FR1':0.08,'FR2':0.10}}
+        OH = OHtable[uldl][fr]
+        Nre__ = min(156,math.floor(12*self.TDDsmb*(1-OH)))
+
+        tbs = Nre__*nprb*r*qm*self.self.ues[ue].assigned_layers
+
+        return tbs
 
 
 class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
