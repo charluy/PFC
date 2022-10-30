@@ -5,6 +5,14 @@ import math
 from IntraSliceSch import IntraSliceScheduler, Format
 from collections import deque
 
+
+SCS_TO_NUM = {
+    '15khz' : 1,
+    '30khz' : 2,
+    '60khz' : 4,
+    '120khz': 8
+}
+
 class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
     """This class implements Network Utility Maximization intra slice scheduling algorithm."""
     def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
@@ -17,29 +25,42 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
         Network Utility Maximization scheduler allocates all PRBs in the slice to the UE with the biggest metric.
         Metric for each group of UE is calculated as argmax of a special function."""
         schd = self.schType[0:2]
+        scs = self.get_subcarrier_spacing()
+        PRBs_base = self.get_assigned_PRBs()
+        PRBs = self.covert_PRBs_base_to_PRBs(PRBs_base, scs)
         if schd=='NUM' and len(list(self.ues.keys()))>0:
-            UE_sched_groups = self.set_sched_groups()
-            self.setUEfactor()
-            maxInd = self.findMaxFactor(UE_sched_groups)
-            for ue in list(self.ues.keys()):
-                if ue == maxInd:
-                    self.ues[ue].prbs = band
-                    # self.ues[ue].prbs = [1, 5, 7] 
-                else:
-                    self.ues[ue].prbs = 0
+            for PRB in PRBs:
+                UE_sched_groups = self.set_sched_groups(PRB)
+                self.setUEfactor(PRB)
+                maxInd = self.findMaxFactor(UE_sched_groups, PRB)
+                for ue in list(self.ues.keys()):
+                    if self.find_UE_max_num_factor(ue, PRB) == maxInd:
+                        self.ues[ue].prbs.append(PRB)
+
         # Print Resource Allocation
         self.printResAlloc()
+
+    def convert_PRBs_base_to_PRBs(PRBs_base, scs):
+        """This method returns a list containing subslists of PRBs_base taking into account the subcarrier spacing of the slice"""
+        PRB_relative_size = SCS_TO_NUM[scs]
+        PRBs = [PRBs_base[i:i+PRB_relative_size] for i in range(0, len(PRBs), PRB_relative_size)]
+        return PRBs   
     
     def set_sched_groups_easy_division(self):
-        """This method divides the UEs in sched groups"""
+        """This method divides the UEs in sched groups of 2 UEs"""
         max_index_groups = 0
         for idue, ue in enumerate(self.ues.keys()):
             ue.sched_groups[0].group_number = idue//2
 
+    def set_sched_groups(self, PRB, threshold_angle):
+        """This method divides the UEs in sched_groups taking into account the departure angle of the principal ray"""
+        for ue in list(self.ues.keys()):
+
+
     def find_groups(self):
         """This method returns the amount of sched groups"""
         max_index_groups = 0
-        for ue in self.ues.keys():
+        for ue in list(self.ues.keys()):
             if ue.sched_groups[-1].group_number > max_index_groups : max_index_groups = ue.sched_groups[-1].group_number
         
         return max_index_groups
@@ -48,71 +69,52 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
         """This method returns the UEs from group number X"""
         ues_from_group_X = []
 
-        for ue in self.ues.keys:
+        for ue in list(self.ues.keys):
             if ue.sched_groups[X].group_number == X: ues_from_group_X.append(ue)
 
         return ues_from_group_X
 
-    def setUEfactor(self, UE_sched_groups):
+    def setUEfactor(self, PRB):
         """This method sets the NUM metric for each UE_sched_group"""
-        for i in range(0, self.find_groups + 1):
+        for i in range(0, self.find_groups() + 1):
             sched_group = self.ues_from_sched_group_X(i)
-            NUM_group_factor = self.compute_NUM_factor(sched_group)
+            NUM_group_factor = self.compute_NUM_factor(sched_group, PRB)
             #[tbs, mod, bi, mcs] = self.setMod(ue,self.nrbUEmax) DON'T KNOW IF NECESSARY
             for ue in sched_group: 
                 #[tbs, mod, bi, mcs] = self.setMod(ue,self.nrbUEmax) DON'T KNOW IF NECESSARY
                 self.ues[ue].sched_groups[i].numFactor = NUM_group_factor
 
-    def compute_NUM_factor(self, sched_group):
+    def compute_NUM_factor(self, sched_group, PRB):
         """This method computes the NUM_factor for a given sched_group"""
         numfactor = []
-
-        for PRB in PRBs:
-            for ue in sched_group:
-                numfactor[PRB] = numfactor[PRB] + self.compute_UE_throughput(ue, PRB, BER)*(1/self.compute_sched_group_throughput(ue, sched_group))
+        for ue in sched_group:
+            numfactor = numfactor + self.compute_UE_throughput(ue, PRB, BER)*(1/self.compute_sched_group_throughput(sched_group, PRB))
         
         return numfactor
 
-    def compute_sched_group_throughput(self, sched_group):
-        """This method returns the sum of the throughput in UEs PRBs for all users in the sched group"""
-        sched_group_throughput = []
+    def compute_sched_group_throughput(self, sched_group, PRB):
+        """This method returns the sum of the throughput in UEs for a given PRB"""
+        sched_group_throughput = 0
         for ue in sched_group:
-            for i in range(0, self.find_groups):
-                for PRB in PRBs:
-                    sched_group_throughput[ue] = sched_group_throughput[ue] + self.compute_UE_throughput(ue, PRB, BER)
+            for i in range(0, self.find_groups()):
+                sched_group_throughput = sched_group_throughput + self.compute_UE_throughput(ue, PRB, BER)
         return sched_group_throughput
 
     def compute_UE_throughput(ue, PRB, BER):
         """This method returns the UE throughput for a given PRB"""
         B = -1.5/math.log(5*BER)
         N_RE = ue.mod
-        throughput= ue.radioLinks.rank*N_RE*math.log(1+B*ue.radioLinks[PRB].snr, 2)
+        throughput= ue.radioLinks.rank[PRB]*N_RE*math.log(1+B*ue.radioLinks.snrs[PRB], 2)
         return throughput
 
-    def compute_utility_function(self):
-        utility_function = 0
-        return utility_function
+    def findMaxFactor(self, PRB):
+        """This method finds and returns the maximum NUM_factor for a  given PRB"""
+        max_NUM_factor = 0
+        for ue in self.ues.keys():
+            for sched_group in ue.sched_groups:
+                if sched_group.num_factor > max_NUM_factor: max_NUM_factor = sched_group.num_factor
 
-    def findMaxFactor(self):
-        """This method finds and returns the UE with the highest metric"""
-        factorMax = 0
-        factorMaxInd = ''
-        for ue in list(self.ues.keys()):
-            if len(self.ues[ue].bearers[0].buffer.pckts)>0 and self.ues[ue].pfFactor>factorMax:
-                factorMax = self.ues[ue].pfFactor
-                factorMaxInd = ue
-        if factorMaxInd=='':
-            ue = list(self.ues.keys())[self.ind_u]
-            q = 0
-            while len(self.ues[ue].bearers[0].buffer.pckts)==0 and q<len(self.ues):
-                self.updIndUE()
-                ue = list(self.ues.keys())[self.ind_u]
-                q = q + 1
-            factorMaxInd = ue
-
-        return factorMaxInd
-
-        self.ues[ue].radioLinks.degree
+        return max_NUM_factor
 
     def printResAlloc(self):
         if self.dbMd:
