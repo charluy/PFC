@@ -15,6 +15,10 @@ SCS_TO_NUM = {
     '120khz': 8
 }
 
+BER = 0.01
+N_RE = 14
+THRESHOLD_ANGLE = 2
+
 class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
     """This class implements Network Utility Maximization intra slice scheduling algorithm."""
     def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
@@ -30,16 +34,17 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
         scs = self.get_subcarrier_spacing()
         PRBs_base = self.get_assigned_PRBs()
         PRBs = self.covert_PRBs_base_to_PRBs(PRBs_base, scs)
+        UE_sched_groups = self.set_sched_groups()
         if schd=='NUM' and len(list(self.ues.keys()))>0:
             for PRB in PRBs:
-                UE_sched_groups = self.set_sched_groups(PRB)
                 sched_groups_numfactors = self.get_sched_groups_num_factors(UE_sched_groups, PRB)
                 maxInd = np.argmax(sched_groups_numfactors)
                 for ue in UE_sched_groups[maxInd]:
                     self.ues[ue].prbs.append(PRB)
+                    self.ues[ue].layers = min(self.ues[UE_sched_groups[maxInd]].layers)
 
         # Print Resource Allocation
-        self.printResAlloc()
+        self.printResAlloc(UE_sched_groups, sched_groups_numfactors)
 
     def convert_PRBs_base_to_PRBs(PRBs_base, scs):
         """This method returns a list containing subslists of PRBs_base taking into account the subcarrier spacing of the slice"""
@@ -53,11 +58,11 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
         for idue, ue in enumerate(self.ues.keys()):
             ue.sched_groups[0].group_number = idue//2
 
-    def set_sched_groups(self, PRB, threshold_angle):
+    def set_sched_groups(self):
         """This method divides the UEs in sched_groups taking into account the departure angle of the principal ray"""
         sched_groups = []
         for group in self.generate_all_possible_groups():
-            if len(group) == 1 or self.valid_group(group, threshold_angle) == True:
+            if len(group) == 1 or self.valid_group(group) == True:
                 sched_groups.append(group)
         
         return sched_groups
@@ -70,11 +75,11 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
 
         return comb
 
-    def valid_group(self, group, threshold_angle):
+    def valid_group(self, group):
         is_a_valid_group = False
         for i in range(len(group)):
             for j in range(i):
-                is_a_valid_group = abs(group[i].radioLinks.degrees[0] - group[i].radioLinks.degrees[0]) > threshold_angle 
+                is_a_valid_group = abs(group[i].radioLinks.degrees[0] - group[i].radioLinks.degrees[0]) > THRESHOLD_ANGLE
         
         return is_a_valid_group
 
@@ -83,30 +88,30 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
         """This method sets the NUM metric for each UE_sched_group"""
         num_factors = []
         for sched_group in sched_groups:
-            NUM_group_factor = self.compute_NUM_factor(sched_group, PRB)
+            NUM_group_factor = self.compute_NUM_factor(sched_group, sched_groups, PRB)
             num_factors.append(NUM_group_factor)
             #[tbs, mod, bi, mcs] = self.setMod(ue,self.nrbUEmax) DON'T KNOW IF NECESSARY
 
         return num_factors
 
-    def compute_NUM_factor(self, sched_group, PRB):
+    def compute_NUM_factor(self, sched_group, sched_groups, PRB):
         """This method computes the NUM_factor for a given sched_group"""
         numfactor = []
         for ue in sched_group:
-            numfactor = numfactor + self.compute_UE_throughput(ue, PRB, BER)*(1/self.compute_sched_group_throughput(sched_group, PRB))
+            numfactor = numfactor + self.compute_UE_throughput(ue, PRB, BER)*(1/self.compute_UE_sched_groups_throughput(ue, sched_groups, PRB))
         
         return numfactor
 
-    def compute_sched_group_throughput(self, sched_group, PRB):
-        """This method returns the sum of the throughput in UEs for a given PRB"""
-        sched_group_throughput = 0
-        for ue in sched_group:
-            for i in range(0, self.find_groups()):
-                sched_group_throughput = sched_group_throughput + self.compute_UE_throughput(ue, PRB, BER)
-        return sched_group_throughput
+    def compute_UE_sched_groups_throughput(self, ue, sched_groups, PRB):
+        """This method returns the sum of the throughput in UEs for a given PRB, also named ri"""
+        UE_sched_groups_throughput = 0
+        for sched_group in sched_groups:
+            if ue in sched_group:
+                UE_sched_groups_throughput = UE_sched_groups_throughput + self.compute_UE_throughput(ue, PRB, BER)
+        return UE_sched_groups_throughput
 
     def compute_UE_throughput(ue, PRB, BER):
-        """This method returns the UE throughput for a given PRB"""
+        """This method returns the UE throughput for a given PRB, also named ci"""
         B = -1.5/math.log(5*BER)
         N_RE = ue.mod
         layers = min(ue.radioLinks.ranks[PRB])
@@ -123,13 +128,14 @@ class NUM_Scheduler(IntraSliceScheduler): # NUM Sched ---------
 
         return max_NUM_factor
 
-    def printResAlloc(self):
+    def printResAlloc(self, sched_groups, sched_groups_numfactors):
         if self.dbMd:
             self.printDebData('+++++++++++ Res Alloc +++++++++++++'+'<br>')
             self.printDebData('PRBs: '+str(self.nrbUEmax)+'<br>')
             resAllocMsg = ''
-            for ue in list(self.ues.keys()):
-                resAllocMsg = resAllocMsg + ue +' '+ str(self.ues[ue].pfFactor)+' '+str(self.ues[ue].prbs)+ ' '+str(self.ues[ue].num)+' '+ str(self.ues[ue].lastDen)+'<br>'
+            for sched_group in sched_groups:
+                for ue in sched_group:
+                    resAllocMsg = resAllocMsg + ue + sched_group + ' '+str(self.ues[ue].prbs)+'<br>'
             self.printDebData(resAllocMsg)
             self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
 
