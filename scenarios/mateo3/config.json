@@ -4,7 +4,7 @@
     "cant_prb": 272,
     "n_sc": 3264,
     "is_dynamic": true,
-    "refresh_rate": 1000,
+    "refresh_rate": 500,
     "sim_duration": 3000,
     "ue_groups": {
         "UEgroup_0": {

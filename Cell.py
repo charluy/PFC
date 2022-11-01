@@ -145,13 +145,23 @@ class CellDeepMimo(CellBase):
         This class has cell relative parameters for DeepMIMO scenarios.
         In this case, each PRB must be modeled for scheduling porpuses.
     """
-    def __init__(self, i, b, fr, dm, mBue, tdd, gr, schInter, cant_prbs_base):
+    def __init__(
+        self, cell_id, bandwidth, frequency_range, debug_mode, bearer_buffer_size,
+        tdd, granularity, schInter, cant_prbs_base
+    ):
 
-        super(CellDeepMimo, self).__init__(i, b, fr, dm, mBue, tdd, gr, schInter)
+        bandwidth_list = [bandwidth]
+
+        super(CellDeepMimo, self).__init__(
+            cell_id, bandwidth_list, frequency_range, debug_mode, bearer_buffer_size, 
+            tdd, granularity, schInter
+        )
 
         self.sch = schInter
 
-        self.interSliceSched = InterSliceSchedulerDeepMimo(self.bw, fr, dm, tdd, gr, cant_prbs_base)
+        self.interSliceSched = InterSliceSchedulerDeepMimo(
+            self.bw, frequency_range, debug_mode, tdd, granularity, cant_prbs_base
+        )
 
         self.slicesStsts = {}
 
@@ -168,6 +178,8 @@ class CellDeepMimo(CellBase):
         frecuency = config_dict.get('frecuency')
         if (frecuency is None) or (not isinstance(frecuency, int)):
             error_dict['frecuency'] = f"{config_path} must contain frecuency as integer in KHz"
+        else:
+            config_dict['frecuency_range'] = 'FR1' if frecuency <= 6 else 'FR1'  # TODO: Revisar si con FR2 funciona
         
         cant_prb = config_dict.get('cant_prb')
         if (cant_prb is None) or (not isinstance(cant_prb, int)) or (cant_prb % 8 != 0):
