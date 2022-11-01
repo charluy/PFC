@@ -57,7 +57,9 @@ class InterSliceScheduler():
             yield env.timeout(self.granularity)
 
     def createSlice(self,dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,sch):
-        """This method creates a slice and stores it in the slices dictionary."""
+        """
+            This method creates a slice and stores it in the slices dictionary.
+        """
         self.slices[lbl] = Slice(dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,self.tdd,sch)
 
     def printSliceConfig(self,slice):

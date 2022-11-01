@@ -838,6 +838,9 @@ class TbQueueDeepMimo():
     def removeTB(self):
         if len(self.res)>0:
             return self.res.popleft()
+    
+    def getFreeSpace(self):
+        return 0
 
 
 

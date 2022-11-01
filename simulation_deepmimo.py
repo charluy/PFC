@@ -7,7 +7,7 @@ from UE import *
 from UE import (
     UeGroupDeepMimo
 )
-from Cell import *
+from Cell import CellDeepMimo
 from Results import *
 import json
 from utilities import Format
@@ -20,7 +20,10 @@ DEEPMIMO_CONFIG_FILE = 'config.json'
 
 scenario_dir = "scenarios/mateo3/"
 
-general_config = json.load(open(scenario_dir + DEEPMIMO_CONFIG_FILE))
+deep_mimo_parameters = CellDeepMimo.json_to_dict_config(scenario_dir + DEEPMIMO_CONFIG_FILE)
+
+cant_prbs_base = deep_mimo_parameters.get('cant_prb')
+
 # bandwidth = general_config["bandwidth"]
 # center_freq = general_config["frecuency"]
 # is_dynamic = general_config["is_dynamic"]
@@ -41,7 +44,7 @@ tdd = False
 """Boolean indicating if the cell operates in TDD mode."""
 buf = 81920 #10240 #
 """Integer with the maximum Bytes the UE Bearer buffer can tolerate before dropping packets."""
-schedulerInter = 'PF11'# RRp for improved Round Robin, PFXX for Proportional Fair
+schedulerInter = 'Default'# RRp for improved Round Robin, PFXX for Proportional Fair
 """String indicating the Inter Slice Scheduler to use. For only one Slice simulations use ''.
 If the simulation includes more than one slice, set '' for Round Robin, 'RRp' for Round Robin Plus,
 or 'PFXY' for Proportional Fair with X=numExp and Y=denExp."""
@@ -64,16 +67,43 @@ interSliceSchGr = 3000.0 # interSlice scheduler time granularity
 
 env = simpy.Environment()
 """Environment instance needed by simpy for runing PEM methods"""
-cell1 = Cell('c1',bw,fr,debMode,buf,tdd,interSliceSchGr,schedulerInter)
+
+cell1 = CellDeepMimo(
+    'c1', bw, fr, debMode, buf, tdd, interSliceSchGr, schedulerInter, cant_prbs_base
+)
 """Cell instance for running the simulation"""
+
 interSliceSche1 = cell1.interSliceSched
 """interSliceScheduler instance"""
 
 #           DIFFERENT TRAFFIC PROFILES SETTING
 
+# UEgroup0 = UeGroupDeepMimo(
+#     3,0,5000,0,10,0,'eMBB',20,'','MM','MU',4,cell1,t_sim,measInterv,env, scenario_dir+'UEgroup_0', True, scene_duration=8000
+# )
+
 UEgroup0 = UeGroupDeepMimo(
-    3,0,5000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env, scenario_dir+'UEgroup_0', True, 8000
+    nuDL = 3,
+    nuUL = 0,
+    pszDL = 5000,
+    pszUL = 0,
+    parrDL = 10,
+    parrUL = 0,
+    label = 'eMBB',
+    dly = 20,
+    avlty = '',
+    schedulerType = 'MM',
+    mmMd = 'MU',
+    lyrs = 4,
+    cell = cell1,
+    t_sim = t_sim,
+    measInterv = measInterv,
+    env = env,
+    ueg_dir = scenario_dir+'UEgroup_0',
+    is_dynamic = True,
+    scene_duration = 8000
 )
+
 
 """Group of users with defined traffic profile, capabilities and service requirements for which the sumulation will run.
 
@@ -91,22 +121,25 @@ sinr: is a string starting starting with S if all ues have the same sinr or D if
 #UEgroup2 = UEgroup(3,3,800000,300,1,10,'eMBB-1',10,'','RR','',1,cell1,t_sim,measInterv,env,'D37')
 
 # Set UEgroups list according to the defined groups!!!
-UEgroups = [UEgroup0]#,UEgroup2]#,UEgroup3]#,UEgroup4]
+UEgroups = [UEgroup0]
 """UE group list for the configured simulation"""
+
 #           Slices creation
 for ueG in UEgroups:
-    interSliceSche1.createSlice(ueG.req['reqDelay'],
-    ueG.req['reqThroughputDL'],
-    ueG.req['reqThroughputUL'],
-    ueG.req['reqAvailability'],
-    ueG.num_usersDL,
-    ueG.num_usersUL,
-    band,
-    debMode,
-    ueG.mmMd,
-    ueG.lyrs,
-    ueG.label,
-    ueG.sch)
+    interSliceSche1.createSlice(
+        ueG.req['reqDelay'],
+        ueG.req['reqThroughputDL'],
+        ueG.req['reqThroughputUL'],
+        ueG.req['reqAvailability'],
+        ueG.num_usersDL,
+        ueG.num_usersUL,
+        band,
+        debMode,
+        ueG.mmMd,
+        ueG.lyrs,
+        ueG.label,
+        ueG.sch
+    )
 
 #      Schedulers activation (inter/intra)
 

@@ -145,8 +145,16 @@ class CellDeepMimo(CellBase):
         This class has cell relative parameters for DeepMIMO scenarios.
         In this case, each PRB must be modeled for scheduling porpuses.
     """
-    def __init__(self, i, b, fr, dm, mBue, tdd, gr, schInter):
+    def __init__(self, i, b, fr, dm, mBue, tdd, gr, schInter, cant_prbs_base):
+
         super(CellDeepMimo, self).__init__(i, b, fr, dm, mBue, tdd, gr, schInter)
+
+        self.sch = schInter
+
+        self.interSliceSched = InterSliceSchedulerDeepMimo(self.bw, fr, dm, tdd, gr, cant_prbs_base)
+
+        self.slicesStsts = {}
+
         
     @staticmethod
     def json_to_dict_config(config_path):

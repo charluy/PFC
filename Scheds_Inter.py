@@ -170,11 +170,11 @@ class InterSliceSchedulerDeepMimo(InterSliceScheduler):
             self.dbFile.write('<h3> SUBFRAME NUMBER: '+str(env.now)+'</h3>')
 
             cant_slices = len(list(self.slices.keys()))
-            slices = list(self.slices.keys())
+            slices = [self.slices[slice_label] for slice_label in list(self.slices.keys())]
             assigned_prbs = self.get_equitative_prb_division(cant_slices)
             
-            for slice in slices:
-                slice.updateConfig(assigned_prbs)
+            for slice_index, slice in enumerate(slices):
+                slice.updateConfig(assigned_prbs[slice_index])
 
             self.dbFile.write('<hr>')
 
@@ -206,5 +206,11 @@ class InterSliceSchedulerDeepMimo(InterSliceScheduler):
             first_prb = last_prb
         
         return assigned_prbs
+    
+    def createSlice(self,dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,sch):
+        """
+            This method creates a slice and stores it in the slices dictionary.
+        """
+        self.slices[lbl] = SliceDeepMimo(dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,self.tdd,sch)
 
 

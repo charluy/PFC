@@ -38,7 +38,10 @@ class Slice:
             self.schedulerUL = self.createSliceSched('UL',14-self.tddSymb)
 
     def createSliceSched(self,dir,tddSymb):
-        """This method initializes and returns slice UL or DL scheduler. Scheduler algorithm is selected according to the Slice attribute schType."""
+        """
+            This method initializes and returns slice UL or DL scheduler. Scheduler algorithm is selected 
+            according to the Slice attribute schType.
+        """
         if self.tdd:
             if self.schType[0:2] == 'PF':
                 scheduler = PF_Scheduler(self.band,self.PRBs,self.dm,self.signLoad,self.ttiBms,self.mimoMd,self.layers,dir,tddSymb,self.robustMCS,self.label,self.schType)
@@ -143,7 +146,10 @@ class SliceDeepMimo(Slice):
 
         else:  # FDD Schedulers
             if self.schType[0:2] == 'MM':
-                pass  # TODO: instanciar el scheduler.
+                scheduler = IntraSliceSchedulerDeepMimo(
+                    self.band, self.PRBs, self.dm, self.signLoad, self.ttiBms, self.mimoMd, self.layers,
+                    dir, 14, self.robustMCS, self.label, self.schType, self
+                )
             else:
                 raise Exception(f"IntraSliceScheduler type {self.schType} doesn't exist")
 

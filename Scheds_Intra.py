@@ -4,7 +4,9 @@
 """
 
 import math
-from IntraSliceSch import IntraSliceScheduler, Format
+from IntraSliceSch import (
+    IntraSliceScheduler, Format, TbQueueDeepMimo
+)
 from collections import deque
 from utilities import Format
 
@@ -16,6 +18,7 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
             ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch
         )
         self.slice = slice
+        self.queue = TbQueueDeepMimo()
     
     def resAlloc(self):
         """
@@ -35,7 +38,7 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
 
         # Esto esta mal, pero para probar a cada ue le doy todas los prbs (repito):
         for ue in ue_with_bearer_packets:
-            ue.assigned_base_prbs = base_prbs_to_assign
+            ue.assigned_base_prbs = base_prbs_to_assign  # La asignacion deberia hacerse teniendo en cuenta el scs del prb.
             ue.assigned_layers = 2
             ue.prbs = len(ue.assigned_base_prbs)/cant_prb_in_a_group
 
@@ -51,7 +54,7 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
         """
 
         self.ueLst = list(self.ues.keys())
-        self.resAlloc(self.nrbUEmax)
+        self.resAlloc()
         
         # RB limit no va mas, ahora se confia en la asignacion de resAlloc.
 
@@ -62,7 +65,7 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
             ue_has_prb_assigned = ue.prbs > 0
             ue_has_tb_to_retransmit = len(ue.pendingTB) > 0
 
-            self.printDebDataDM('---------------- '+ue+' ------------------<br>') # print more info in debbug mode
+            self.printDebDataDM('---------------- '+ue_key+' ------------------<br>') # print more info in debbug mode
 
             if ue_has_prb_assigned and ue_has_packets_in_bearer:
 
@@ -102,7 +105,7 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
         OH = OHtable[uldl][fr]
         Nre__ = min(156,math.floor(12*self.TDDsmb*(1-OH)))
 
-        tbs = Nre__*nprb*r*qm*self.self.ues[ue].assigned_layers
+        tbs = Nre__*nprb*r*qm*self.ues[ue].assigned_layers
 
         return tbs
 
