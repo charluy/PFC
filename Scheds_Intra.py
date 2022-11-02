@@ -139,8 +139,11 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
 
 class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
     """This class implements Network Utility Maximization intra slice scheduling algorithm."""
-    # def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
-    #     IntraSliceScheduler.__init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch)
+    def __init__(self, ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch, slice):
+        super(NUM_Scheduler, self).__init__(
+            ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch, slice
+        )
+        self.ri = {}
         
     def resAlloc(self):
         """This method implements Network Utility Maximization resource allocation between the different connected UEs.
