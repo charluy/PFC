@@ -82,14 +82,14 @@ UEgroup0 = UeGroupDeepMimo(
     label = 'eMBB',
     dly = 20,
     avlty = '',
-    schedulerType = 'MM',
+    schedulerType = 'NUM',
     mmMd = 'MU',
     lyrs = 4,
     cell = cell1,
     t_sim = simulation_duration,
     measInterv = measInterv,
     env = env,
-    ueg_dir = scenario_dir+'UEgroup_0',
+    ueg_dir = scenario_dir + 'UEgroup_0',
     is_dynamic = is_dynamic,
     scene_duration = 8000
 )

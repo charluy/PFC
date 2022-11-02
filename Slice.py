@@ -145,8 +145,13 @@ class SliceDeepMimo(Slice):
             raise Exception("There is no TDD scheduler avaiable for DeepMimo scenarios.")
 
         else:  # FDD Schedulers
-            if self.schType[0:2] == 'MM':
+            if self.schType[0:2] == 'DF':  # Default
                 scheduler = IntraSliceSchedulerDeepMimo(
+                    self.band, self.PRBs, self.dm, self.signLoad, self.ttiBms, self.mimoMd, self.layers,
+                    dir, 14, self.robustMCS, self.label, self.schType, self
+                )
+            elif self.schType[0:3] == 'NUM':
+                scheduler = NUM_Scheduler(
                     self.band, self.PRBs, self.dm, self.signLoad, self.ttiBms, self.mimoMd, self.layers,
                     dir, 14, self.robustMCS, self.label, self.schType, self
                 )
