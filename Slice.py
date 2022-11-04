@@ -166,4 +166,5 @@ class SliceDeepMimo(Slice):
         """
         self.assigned_base_prbs = assigned_base_prb_list
         self.PRBs = int(len(assigned_base_prb_list)/self.ttiBms)
+        self.schedulerDL.nrbUEmax = self.PRBs
 

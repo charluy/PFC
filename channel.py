@@ -60,7 +60,7 @@ class RadioLinkDeepMimo:
         self.snr = []
         self.rank = []
         self.degree = []
-        self.linkQuality = 0  # TODO: ver si hay que dejarlo
+        self.linkQuality = 0
     
     def update_link_status(self, snr, rank, degree):
         self.snr = snr
@@ -70,14 +70,17 @@ class RadioLinkDeepMimo:
     
     def get_radio_link_quality_over_assigned_prbs(self) -> tuple:
         assigned_prb_list = self.ue.assigned_base_prbs
+        cant_base_prb = len(assigned_prb_list)
         snr_value = 0
         
         for prb_index in assigned_prb_list:
             snr_value += self.snr[prb_index]
 
-        snr = float(snr_value)/len(assigned_prb_list)
-
-        return (snr, self.ue.assigned_layers)
+        if cant_base_prb != 0:
+            snr = float(snr_value)/cant_base_prb
+            return (snr, self.ue.assigned_layers)
+        else:
+            return (0, 0)
 
 
 class DeepMimoChannel():

@@ -179,7 +179,7 @@ class CellDeepMimo(CellBase):
         if (frecuency is None) or (not isinstance(frecuency, int)):
             error_dict['frecuency'] = f"{config_path} must contain frecuency as integer in KHz"
         else:
-            config_dict['frecuency_range'] = 'FR1' if frecuency <= 6 else 'FR1'  # TODO: Revisar si con FR2 funciona
+            config_dict['frecuency_range'] = 'FR1' if frecuency <= 6 else 'FR2'
         
         cant_prb = config_dict.get('cant_prb')
         if (cant_prb is None) or (not isinstance(cant_prb, int)) or (cant_prb % 8 != 0):

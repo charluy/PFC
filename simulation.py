@@ -29,7 +29,7 @@ from utilities import Format
 
 bw = [10] # MHz (FR1: 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 90, 100; FR2: 50, 100, 200, 400)
 """List containing each CC's bandwidth for the simulation. """
-fr = 'FR1' # TODO: FR1 or FR2
+fr = 'FR1'
 """String with frequency range (FR) to use. 'FR1' for FR1, or 'FR2' for FR2."""
 band = 'B1'
 """String with used band for simulation. In TDD mode it is important to set correctly a band from the next list: n257, n258, n260, n261."""

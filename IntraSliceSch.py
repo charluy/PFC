@@ -355,9 +355,6 @@ class IntraSliceScheduler():
         self.ues[u].bler = 0.0
 
     def insertTB(self,id,m,uu,type,pack_lst,n,s):
-        # Ejemplos de uso: TODO: Borrar.
-        #   self.insertTB(self.ues[u].TBid,'4-QAM',u,'Sig',p_l,self.ues[u].prbs,19)
-        #   self.insertTB(self.ues[u].TBid,mod,u,'data',list_p,n,min(int(pks_s),tbSize))
         tb = TransportBlock(id,m,uu,type,pack_lst,n,s)
         succ = self.queue.insertTB(tb)
         if not(uu=='Broadcast'):

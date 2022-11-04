@@ -19,12 +19,12 @@ scenario_dir = "scenarios/mateo3/"
 
 deep_mimo_parameters = CellDeepMimo.json_to_dict_config(scenario_dir + DEEPMIMO_CONFIG_FILE)
 
-cant_prbs_base = deep_mimo_parameters.get('cant_prb') ###
-frequency_range = deep_mimo_parameters.get('frecuency_range') ###
-bandwidth = deep_mimo_parameters.get('bandwidth') ###
+cant_prbs_base = deep_mimo_parameters.get('cant_prb')
+frequency_range = deep_mimo_parameters.get('frecuency_range')
+bandwidth = deep_mimo_parameters.get('bandwidth')
 is_dynamic = deep_mimo_parameters.get('is_dynamic')
-scene_duration = deep_mimo_parameters.get('refresh_rate') # 
-simulation_duration = deep_mimo_parameters.get('sim_duration') ###
+scene_duration = deep_mimo_parameters.get('refresh_rate')
+simulation_duration = deep_mimo_parameters.get('sim_duration')
 
 
 band = 'B1'
@@ -72,19 +72,19 @@ cell1 = CellDeepMimo(
 interSliceSche1 = cell1.interSliceSched
 """interSliceScheduler instance"""
 
-UEgroup0 = UeGroupDeepMimo(
+UEgroup0 = UeGroupDeepMimo(  # 8Mbps each
     nuDL = 3,
     nuUL = 0,
-    pszDL = 5000,
-    pszUL = 0,
-    parrDL = 10,
-    parrUL = 0,
+    pszDL = 100000,  # bytes
+    pszUL = 0,  # bytes
+    parrDL = 100,  # miliseconds between packets
+    parrUL = 0,  # miliseconds between packets
     label = 'eMBB',
-    dly = 20,
+    dly = 1,  # milisecond
     avlty = '',
-    schedulerType = 'NUM',
-    mmMd = 'MU',
-    lyrs = 4,
+    schedulerType = 'NUM',  # 'DF'
+    mmMd = 'MU',  # For NUM inter slice schedulerMIMO mode must be 'MU'
+    lyrs = 0,  # Dont apply for NUM inter slice scheduler
     cell = cell1,
     t_sim = simulation_duration,
     measInterv = measInterv,
@@ -95,7 +95,30 @@ UEgroup0 = UeGroupDeepMimo(
 )
 """Group of users with defined traffic profile for which the sumulation will run."""
 
-UEgroups = [UEgroup0]
+UEgroup1 = UeGroupDeepMimo(  # 240kbps each
+    nuDL = 5,
+    nuUL = 0,
+    pszDL = 3000,  # bytes
+    pszUL = 0,  # bytes
+    parrDL = 100,  # miliseconds between packets
+    parrUL = 0,  # miliseconds between packets
+    label = 'eMBB2',
+    dly = 20,  # milisecond
+    avlty = '',
+    schedulerType = 'NUM',  # 'DF'
+    mmMd = 'MU',  # For NUM inter slice schedulerMIMO mode must be 'MU'
+    lyrs = 0,  # Dont apply for NUM inter slice scheduler
+    cell = cell1,
+    t_sim = simulation_duration,
+    measInterv = measInterv,
+    env = env,
+    ueg_dir = scenario_dir + 'UEgroup_1',
+    is_dynamic = is_dynamic,
+    scene_duration = 8000
+)
+"""Group of users with defined traffic profile for which the sumulation will run."""
+
+UEgroups = [UEgroup0, UEgroup1]
 """UE group list for the configured simulation"""
 
 for ueG in UEgroups:

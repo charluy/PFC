@@ -37,20 +37,18 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
             This method allocates cell specifics PRBs to the different connected UEs.
         """
 
-        # TODO: Completar. 
-        # Ver de donde saco la lista de prbs base asignados a la slice.
-        # Tengo que guardar los resultados en los usuarios:
-        #   - assigned_prbs: lista de los prb base asignados a los usuarios, asi despues se puede ver el snr.
-        #   - PRBs: por compatibilidad, es la cantidad de PRBs asignados = cant_prbs_base_asignado/factor.
-        #   - assigned_layers: la cantidad de layers que se le dio a ese usuario.
+        # In order to allocate resources to UEs must do:
+        #   - assigned_prbs: Set base prb list assigned to the UE.
+        #   - PRBs: Cant of prb assigned to the scheduler in the given numerology.
+        #   - assigned_layers: Cant of layers given to the UE.
 
         base_prbs_to_assign = self.slice.assigned_base_prbs
         cant_prb_in_a_group = self.ttiByms
         ue_with_bearer_packets = [self.ues[ue_key] for ue_key in list(self.ues.keys()) if self.ues[ue_key].has_packet_in_bearer()]
 
-        # Esto esta mal, pero para probar a cada ue le doy todas los prbs (repito):
+        # This implementation have no sense but is intenden as an example.
         for ue in ue_with_bearer_packets:
-            ue.assigned_base_prbs = base_prbs_to_assign  # La asignacion deberia hacerse teniendo en cuenta el scs del prb.
+            ue.assigned_base_prbs = base_prbs_to_assign
             ue.assigned_layers = 2
             ue.prbs = len(ue.assigned_base_prbs)/cant_prb_in_a_group
 
@@ -166,9 +164,9 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                     sched_groups_numfactors = self.get_sched_groups_num_factors(UE_sched_groups, PRB)
                     maxInd = np.argmax(sched_groups_numfactors)
                     for ue in UE_sched_groups[maxInd]:
-                        ue.assigned_base_prbs.append(PRB)
-                        ue.assigned_layers = 2  # min(self.ues[UE_sched_groups[maxInd]].layers)
-                        ue.prbs += 1
+                        ue.add_resources(
+                            base_prbs_list=PRB, layers=2, cant_prbs=1
+                        )
 
         # Print Resource Allocation
         # self.printResAlloc(UE_sched_groups, sched_groups_numfactors)

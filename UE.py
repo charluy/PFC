@@ -124,7 +124,7 @@ class UeGroupBase:
             makePlotsInter('UL',times_UL,rU_UL,plr_UL,th_UL,cnx_UL,buf_UL,met,bw,self.schIn,self.gr)
 
 
-class UEgroup(UeGroupBase):  # TODO: Cambiar el nombre de la clase a algo mas descriptivo
+class UEgroup(UeGroupBase):
     """
         Extends UeGroupBase class for simple UE definition
     """
@@ -152,7 +152,7 @@ class UEgroup(UeGroupBase):  # TODO: Cambiar el nombre de la clase a algo mas de
     def setInitialSINR(self,sinr):
         """
             This method generates SINR values from string.
-            Example: 'S40' to indicate static value of 40db. # TODO: revisar!
+            Example: 'S40' to indicate static value of 40db.
         """
         if self.num_usersDL>0:
             self.sinr_0DL = initialSinrGenerator(self.num_usersDL,sinr)
@@ -261,7 +261,6 @@ class UeGroupDeepMimo(UeGroupBase):
         """
             This PEM method updates all UE's radio link quality in the group
         """
-        # TODO: Cambiar para actualizar un modelo de canal mas razonable.
         while env.now<(tSim*0.83):
             yield env.timeout(self.scene_duration)
             self.update_ue_group_rl()
@@ -428,5 +427,24 @@ class UeDeepMimo(UeBase):
     
     def has_packet_in_bearer(self):
         return self.bearers[0].has_packets()
+
+    def add_resources(self, base_prbs_list, layers, cant_prbs):
+        
+        # Add base prbs to the list of assigned ones:
+        if isinstance(base_prbs_list, int):
+            self.assigned_base_prbs.append(base_prbs_list)
+        elif isinstance(base_prbs_list, list):
+            self.assigned_base_prbs += base_prbs_list
+        else:
+            raise Exception("Assigned PRB must be a list of integer or a integer")
+        
+        # Keep the smallest layer value:
+        if self.assigned_layers == 0:
+            self.assigned_layers = layers
+        else:
+            self.assigned_layers = min(self.assigned_layers, layers)
+        
+        # Track of the number of assigned prbs:
+        self.prbs += cant_prbs
 
 
