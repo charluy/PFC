@@ -4,9 +4,11 @@
 """
 
 import math
+from operator import index
 from IntraSliceSch import IntraSliceScheduler, Format, TbQueueDeepMimo
 from collections import deque
 from utilities import Format
+from operator import attrgetter
 import numpy as np
 from itertools import combinations
 
@@ -21,6 +23,7 @@ SCS_TO_NUM = {
 BER = 0.01
 N_RE = 14
 THRESHOLD_ANGLE = 2
+DELTA = 0.7
 
 
 class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
@@ -141,7 +144,8 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         super(NUM_Scheduler, self).__init__(
             ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch, slice
         )
-        self.ri = {}
+        self.ri = 10*np.random.rand(len(list(self.ues.keys())))
+        self.ri_mean = np.zeros(len(list(self.ues.keys())))
         
     def resAlloc(self):
         """This method implements Network Utility Maximization resource allocation between the different connected UEs.
@@ -165,8 +169,11 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                     maxInd = np.argmax(sched_groups_numfactors)
                     for ue in UE_sched_groups[maxInd]:
                         ue.add_resources(
-                            base_prbs_list=PRB, layers=2, cant_prbs=1
+                            base_prbs_list=PRB, layers= min(UE_sched_groups[maxInd], key=attrgetter('layers')), cant_prbs=1
                         )
+                        index_ue = list(self.ues).index(ue)
+                        self.ri[index_ue] = self.ri[index_ue] + self.compute_UE_throughput(ue, PRB)
+                        self.ri_mean[index_ue] = self.get_ri_mean_factor(index_ue)
 
         # Print Resource Allocation
         # self.printResAlloc(UE_sched_groups, sched_groups_numfactors)
@@ -222,9 +229,14 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         """This method computes the NUM_factor for a given sched_group"""
         numfactor = 0
         for ue in sched_group:
-            numfactor += self.compute_UE_throughput(ue, PRB, BER)*(1/self.compute_UE_sched_groups_throughput(ue, sched_groups, PRB))
+            numfactor += self.compute_UE_throughput(ue, PRB, BER)*(1/self.get_ri_mean_factor(self.get_ue_list().index(ue)))
         
         return numfactor
+
+    def get_ri_mean_factor(self, index_ue):
+        ri_mean_factor = DELTA*self.ri_mean[index_ue] + (1-DELTA)*self.ri[index_ue]
+        return ri_mean_factor
+
 
     def compute_UE_sched_groups_throughput(self, ue, sched_groups, PRB):
         """This method returns the sum of the throughput in UEs for a given PRB, also named ri"""
@@ -234,7 +246,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                 UE_sched_groups_throughput = UE_sched_groups_throughput + self.compute_UE_throughput(ue, PRB, BER)
         return UE_sched_groups_throughput
 
-    def compute_UE_throughput(self, ue, PRB, BER):
+    def compute_UE_throughput(self, ue, PRB):
         """This method returns the UE throughput for a given PRB, also named ci"""
         B = -1.5/math.log(5*BER)
         layers = min(ue.radioLinks.rank[PRB])
