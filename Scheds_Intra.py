@@ -144,8 +144,8 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         super(NUM_Scheduler, self).__init__(
             ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch, slice
         )
-        self.ri = 10*np.random.rand(len(list(self.ues.keys())))
-        self.ri_mean = np.zeros(len(list(self.ues.keys())))
+        self.ri = {}
+        self.ri_mean = {}
         
     def resAlloc(self):
         """This method implements Network Utility Maximization resource allocation between the different connected UEs.
@@ -169,11 +169,12 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                     maxInd = np.argmax(sched_groups_numfactors)
                     for ue in UE_sched_groups[maxInd]:
                         ue.add_resources(
-                            base_prbs_list=PRB, layers= min(UE_sched_groups[maxInd], key=attrgetter('layers')), cant_prbs=1
+                            base_prbs_list=PRB, layers = 2, cant_prbs = 1
+                            # layers= min(UE_sched_groups[maxInd], key=attrgetter('radioLinks.rank')), cant_prbs=1
                         )
-                        index_ue = list(self.ues).index(ue)
-                        self.ri[index_ue] = self.ri[index_ue] + self.compute_UE_throughput(ue, PRB)
-                        self.ri_mean[index_ue] = self.get_ri_mean_factor(index_ue)
+                        ue_key = ue.id
+                        self.ri[ue_key] = self.get_ri(ue_key) + self.compute_UE_throughput(ue, PRB)
+                        self.ri_mean[ue_key] = self.get_ri_mean_factor(ue_key)
 
         # Print Resource Allocation
         # self.printResAlloc(UE_sched_groups, sched_groups_numfactors)
@@ -229,14 +230,21 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         """This method computes the NUM_factor for a given sched_group"""
         numfactor = 0
         for ue in sched_group:
-            numfactor += self.compute_UE_throughput(ue, PRB, BER)*(1/self.get_ri_mean_factor(self.get_ue_list().index(ue)))
+            numfactor += self.compute_UE_throughput(ue, PRB)*(1/self.get_ri_mean_factor(self.get_ue_list().index(ue)))
         
         return numfactor
 
-    def get_ri_mean_factor(self, index_ue):
-        ri_mean_factor = DELTA*self.ri_mean[index_ue] + (1-DELTA)*self.ri[index_ue]
+    def get_ri_mean_factor(self, ue_key):
+        ri_mean_factor = DELTA*self.get_ri_mean(ue_key) + (1-DELTA)*self.get_ri(ue_key)
         return ri_mean_factor
 
+    def get_ri_mean(self, ue_key):
+        self.ri_mean.setdefault(ue_key, 0.0)
+        return self.ri_mean[ue_key]
+
+    def get_ri(self, ue_key):
+        self.ri.setdefault(ue_key, 10*np.random.rand())
+        return self.ri[ue_key]
 
     def compute_UE_sched_groups_throughput(self, ue, sched_groups, PRB):
         """This method returns the sum of the throughput in UEs for a given PRB, also named ri"""
