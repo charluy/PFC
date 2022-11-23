@@ -20,7 +20,7 @@ BW_PRB = 180000
 scenario_name = "I2_28B"
 is_dynamic = True 
 cant_dynamic_ues = 1 # Lets try first with one dynamic user
-cant_bs = 1 # Number of base station in DeepMIMO selected scenario
+# cant_bs = 1 # Number of base station in DeepMIMO selected scenario
 n_ue_rows = 701
 n_ue_columns = 201
 center_freq = 28 # In GHz
@@ -30,8 +30,8 @@ ue_separation = 0.01
 out_dir = "../scenarios/I2_28B/" # Could be another scenario, so the path would be different
 bandwidth = 0.05 # In GHz
 cant_sc = round_up_sc_to_12_and_8(bandwidth)
-TX_power = (10**(-2))*cant_sc
-TX_power_sc = float(TX_power)/cant_sc
+# TX_power = (10**(-2))*cant_sc
+TX_power_sc = 3*(10**(-6))  # float(TX_power)/cant_sc
 N_0 = abs(10**(-18)) # Noise level
 # UEgroups = [(0,9),(100,149)] First try Mateo3
 # dyn_UE_positions = [{"position": 7, "UEgroup": 0, "type_of_movement": "vertical"}, {"position": 110, "UEgroup": 1, "type_of_movement": "horizontal"}] First try Mateo3
@@ -49,7 +49,7 @@ parameters['scenario'] = scenario_name
 
 # Set the main folder containing extracted scenarios
 parameters['dataset_folder'] = "scenarios"
-active_bs = [id for id in range(1,cant_bs+1)]
+active_bs = [1]  # id for id in range(1,cant_bs+1)
 parameters['active_BS'] = np.array(active_bs)
 
 # For OFDM channels, set - Creo que no es necesario.
@@ -66,12 +66,12 @@ parameters['OFDM']['subcarriers_limit'] = cant_sc
 parameters['OFDM']['subcarriers_sampling'] = 1
 
 # Ponemos una antena en TX y una también en RX
-parameters['bs_antenna']['shape'] = np.array([1,5,1])
+parameters['bs_antenna']['shape'] = np.array([1,1,1])
 parameters['ue_antenna']['shape'] = np.array([1,1,1])
 
 # We define the amount of rows to be used in this case being more than 201 because we have more than 2 rows
 parameters['user_row_first'] = 1
-parameters['user_row_last'] = 4
+parameters['user_row_last'] = 500
 
 pp = pprint.PrettyPrinter(indent=4)
 pp.pprint(parameters)
@@ -113,7 +113,7 @@ for scene in range(0, cant_scenes):
         # RX_ant = 0
         # TX_ant = 0
         SNR = np.zeros(shape = (cant_ue, len(PRBs)))
-        rank = np.zeros(shape = (cant_ue, len(PRBs)))
+        rank = np.ones(shape = (cant_ue, len(PRBs)))
         print("the shape of the rank is")
         print(rank.shape)
         DoA = np.zeros(shape = (cant_ue, 2))
@@ -148,9 +148,9 @@ for scene in range(0, cant_scenes):
 
             pot_senal = 0
             for PRB in PRBs:
-                rank[ue.position-first_ue][PRBs.index(PRB)], antenna_comb = ue.best_rank(info[:, :, PRB], 10, np.max(parameters['ue_antenna']['shape']))
+                # rank[ue.position-first_ue][PRBs.index(PRB)], antenna_comb = ue.best_rank(info[:, :, PRB], 10, np.max(parameters['ue_antenna']['shape']))
                 for subp in PRB:
-                    pot_senal += TX_power_sc * (info[0:2, antenna_comb, subp]**2)
+                    pot_senal += TX_power_sc * (info[0,0,subp]**2)
                     # print(pot_senal.shape)
                 
                 
@@ -162,15 +162,15 @@ for scene in range(0, cant_scenes):
                 #     print("la potencia es")
                 #     print(pot_senal)
 
-                SNR[UEs.index(ue)][PRBs.index(PRB)] = 10*np.log10(np.min(np.diagonal(pot_senal))/ (N_0 * BW_PRB))
+                SNR[UEs.index(ue)][PRBs.index(PRB)] = 10*np.log10(pot_senal/ (N_0 * BW_PRB))
+
+                print("\n-------\n")
 
                 if (SNR[UEs.index(ue)][PRBs.index(PRB)] < 0):
-                    print("la potencia es")
-                    print(pot_senal)
+                    print(f"la potencia es {pot_senal}")
 
                 if (SNR[UEs.index(ue)][PRBs.index(PRB)] > 40):
-                    print("mas que 40 la potencia es")
-                    print(pot_senal)
+                    print(f"mas que 40 la potencia es {pot_senal}")
 
                 if(SNR[UEs.index(ue)][PRBs.index(PRB)] > 40):
                     print("que paso!!!!!!!!!!!!")
@@ -184,14 +184,14 @@ for scene in range(0, cant_scenes):
 
             ue.switch_position(scene + 1, 100000, 201, refresh_rate, ue_separation)
 
-            # if ue.is_dynamic:
-            #     print ("it is dynamic")
-            #     print ("has a speed of")
-            #     print (ue.speed)
-            #     print ("The SNR is : ")
-            #     print (SNR[0][5])
-            #     print ("The position is:")
-            #     print (ue.position)
+            if ue.is_dynamic:
+                print ("it is dynamic")
+                print ("has a speed of")
+                print (ue.speed)
+                print ("The SNR is : ")
+                print (SNR[0][5])
+                print ("The position is:")
+                print (ue.position)
 
         np.savez(UEg_out_dir + "/Data_" + str(scene), SNR=SNR, rank=rank , DoA=DoA)
 

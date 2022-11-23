@@ -12,3 +12,7 @@ __pycache__
 
 # Jupyter notebook checkpoints:
 *.ipynb_checkpoints
+
+DeepMIMO/scenarios
+scenarios/
+scenarios/I2_28B/*
