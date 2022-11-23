@@ -59,10 +59,10 @@ class UE:
         # print(rank)
         return rank
 
-    def best_rank(self, channel_matrix, threshold):
+    def best_rank(self, channel_matrix, threshold, ue_antennas):
         rank = 1
         comb_best_rank = []
-        for comb in itertools.combinations(range(channel_matrix.shape[1]), 2):
+        for comb in itertools.combinations(range(channel_matrix.shape[1]), ue_antennas):
             rank = self.user_rank(channel_matrix[:, comb, :], threshold) if self.user_rank(channel_matrix[:, comb, :], threshold) > 1 else 1
             comb_best_rank = comb
             if rank > 1:

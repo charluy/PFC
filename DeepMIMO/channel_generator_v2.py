@@ -13,6 +13,8 @@ import os
 from aux_functions import create_conf_dict, round_up_sc_to_12_and_8
 from UE import UE
 
+# Constants
+BW_PRB = 180000
 
 # DeepMIMO scene characteristics
 scenario_name = "I2_28B"
@@ -28,8 +30,9 @@ ue_separation = 0.01
 out_dir = "../scenarios/I2_28B/" # Could be another scenario, so the path would be different
 bandwidth = 0.05 # In GHz
 cant_sc = round_up_sc_to_12_and_8(bandwidth)
-TX_power = (10**(-3))*cant_sc
+TX_power = (10**(-2))*cant_sc
 TX_power_sc = float(TX_power)/cant_sc
+N_0 = abs(10**(-18)) # Noise level
 # UEgroups = [(0,9),(100,149)] First try Mateo3
 # dyn_UE_positions = [{"position": 7, "UEgroup": 0, "type_of_movement": "vertical"}, {"position": 110, "UEgroup": 1, "type_of_movement": "horizontal"}] First try Mateo3
 UEgroups = [(0, 0)]
@@ -143,23 +146,38 @@ for scene in range(0, cant_scenes):
 
             # Estimate SINR in OFDM carrier:
 
-            N_0 = abs(10**(-16)) # Nivel de ruido 
-            B = parameters['OFDM']['bandwidth'] * (10**9) # Ancho de banda del canal OFDM
             pot_senal = 0
             for PRB in PRBs:
-                rank[ue.position-first_ue][PRBs.index(PRB)], antenna_comb = ue.best_rank(info[:, :, PRB], 10)
+                rank[ue.position-first_ue][PRBs.index(PRB)], antenna_comb = ue.best_rank(info[:, :, PRB], 10, np.max(parameters['ue_antenna']['shape']))
                 for subp in PRB:
-                    if(np.max(info[0:2, antenna_comb, subp]) > 1):
-                        print("what!?")
-
                     pot_senal += TX_power_sc * (info[0:2, antenna_comb, subp]**2)
                     # print(pot_senal.shape)
-                SNR[ue.position-first_ue][PRBs.index(PRB)] = 20*np.log(np.min(np.diagonal(pot_senal))/ (N_0 * B/len(PRBs)))
-                if(SNR[ue.position-first_ue][PRBs.index(PRB)] > 40):
+                
+                
+                # if (pot_senal > 10**(-10)):
+                #     print("la potencia es")
+                #     print(pot_senal)
+
+                # if (np.min(np.diagonal(pot_senal)) < 10**(-13)):
+                #     print("la potencia es")
+                #     print(pot_senal)
+
+                SNR[UEs.index(ue)][PRBs.index(PRB)] = 10*np.log10(np.min(np.diagonal(pot_senal))/ (N_0 * BW_PRB))
+
+                if (SNR[UEs.index(ue)][PRBs.index(PRB)] < 0):
+                    print("la potencia es")
+                    print(pot_senal)
+
+                if (SNR[UEs.index(ue)][PRBs.index(PRB)] > 40):
+                    print("mas que 40 la potencia es")
+                    print(pot_senal)
+
+                if(SNR[UEs.index(ue)][PRBs.index(PRB)] > 40):
                     print("que paso!!!!!!!!!!!!")
 
-                if (SNR[ue.position-first_ue][PRBs.index(PRB)] < 0):
-                    SNR[ue.position-first_ue][PRBs.index(PRB)] = 0
+                if (SNR[UEs.index(ue)][PRBs.index(PRB)] < 0):
+                    print("rari")
+                    print(SNR[UEs.index(ue)][PRBs.index(PRB)])
 
             # print("Has rank greater or equal than 2")
             # print(ue.has_at_least_one_prb_with_rank_2(rank[ue.position-first_ue]))
