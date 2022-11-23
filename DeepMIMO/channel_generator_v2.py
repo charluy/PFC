@@ -10,10 +10,8 @@ import pprint
 import json
 import numpy as np
 import os
-from aux_functions_2 import create_conf_dict, round_up_sc_to_12_and_8
-from aux_channel_functions import UE
-
-
+from aux_functions import create_conf_dict, round_up_sc_to_12_and_8
+from UE import UE
 
 
 # DeepMIMO scene characteristics
@@ -24,17 +22,21 @@ cant_bs = 1 # Number of base station in DeepMIMO selected scenario
 n_ue_rows = 701
 n_ue_columns = 201
 center_freq = 28 # In GHz
+ue_separation = 0.01
 
 # Simulation parameters
 out_dir = "../scenarios/I2_28B/" # Could be another scenario, so the path would be different
 bandwidth = 0.05 # In GHz
 cant_sc = round_up_sc_to_12_and_8(bandwidth)
-TX_power = (10**(-1))*cant_sc
+TX_power = (10**(-3))*cant_sc
 TX_power_sc = float(TX_power)/cant_sc
-UEgroups = [(0,9),(100,149)]
-dyn_UE_positions = [{"position": 7, "UEgroup": 0, "type_of_movement": "vertical"}, {"position": 110, "UEgroup": 1, "type_of_movement": "horizontal"}]
-cant_scenes = 3 
-refresh_rate = 0.001 # In seconds
+# UEgroups = [(0,9),(100,149)] First try Mateo3
+# dyn_UE_positions = [{"position": 7, "UEgroup": 0, "type_of_movement": "vertical"}, {"position": 110, "UEgroup": 1, "type_of_movement": "horizontal"}] First try Mateo3
+UEgroups = [(0, 0)]
+dyn_UE_positions = [{"position": 0, "UEgroup": 0, "type_of_movement": "vertical"}]
+cant_scenes = 300 
+refresh_rate = 0.1 # In seconds
+bs = 0
 
 # Load the default parameters
 parameters = DeepMIMO.default_params()
@@ -62,7 +64,7 @@ parameters['OFDM']['subcarriers_sampling'] = 1
 
 # Ponemos una antena en TX y una también en RX
 parameters['bs_antenna']['shape'] = np.array([1,5,1])
-parameters['ue_antenna']['shape'] = np.array([1,2,1])
+parameters['ue_antenna']['shape'] = np.array([1,1,1])
 
 # We define the amount of rows to be used in this case being more than 201 because we have more than 2 rows
 parameters['user_row_first'] = 1
@@ -116,53 +118,63 @@ for scene in range(0, cant_scenes):
         # Create the UEs for each UE group
         UEs = []
 
-        for ue in range(first_ue, last_ue):
+        for ue in range(first_ue, last_ue+1):
             user = UE(idUEg, ue)
             UEs.append(user)
 
-        UEs[3].is_dynamic = True
-        UEs[3].speed = 5
+        UEs[0].is_dynamic = True
+        UEs[0].speed = 0.22
 
-        for bs in range(0,cant_bs):
-            for ue in UEs:
+        for ue in UEs:
 
-                # info = np.absolute(dataset[bs]['user']['channel'][ue.position][RX_ant][TX_ant])
+            # info = np.absolute(dataset[bs]['user']['channel'][ue.position][RX_ant][TX_ant])
 
-                info = np.absolute(dataset[bs]['user']['channel'][ue.position])
-                # Plot Channel magnitud response por portadora OFDM:
-                # print(info.shape)
+            info = np.absolute(dataset[bs]['user']['channel'][ue.position])
+            # Plot Channel magnitud response por portadora OFDM:
+            # print(info.shape)
 
-                # Save DoA
-                DoA[ue.position-first_ue][0] = dataset[bs]['user']['paths'][ue.position]['DoA_phi'][0]
-                DoA[ue.position-first_ue][1] = dataset[bs]['user']['paths'][ue.position]['DoA_theta'][1]
+            # Save DoA
+            DoA[ue.position-first_ue][0] = dataset[bs]['user']['paths'][ue.position]['DoA_phi'][0]
+            DoA[ue.position-first_ue][1] = dataset[bs]['user']['paths'][ue.position]['DoA_theta'][1]
 
-                print ('the shape of the DoA is ')
-                print (DoA[ue.position-first_ue].shape)
+            # print ('the shape of the DoA is ')
+            # print (DoA[ue.position-first_ue].shape)
 
 
-                # Estimate SINR in OFDM carrier:
+            # Estimate SINR in OFDM carrier:
 
-                N_0 = abs(10**(-16)*np.random.randn()) # Nivel de ruido 
-                B = parameters['OFDM']['bandwidth'] * (10**9) # Ancho de banda del canal OFDM
-                pot_senal = 0
-                for PRB in PRBs:
-                    rank[ue.position-first_ue][PRBs.index(PRB)], antenna_comb = ue.best_rank(info[:, :, PRB], 10)
-                    for subp in PRB:
-                        pot_senal += TX_power_sc * (info[0:2, antenna_comb, subp]**2)
-                        # print(pot_senal.shape)
-                    SNR[ue.position-first_ue][PRBs.index(PRB)] = np.min(np.diagonal(pot_senal / (N_0 * B/len(PRBs))))
+            N_0 = abs(10**(-16)) # Nivel de ruido 
+            B = parameters['OFDM']['bandwidth'] * (10**9) # Ancho de banda del canal OFDM
+            pot_senal = 0
+            for PRB in PRBs:
+                rank[ue.position-first_ue][PRBs.index(PRB)], antenna_comb = ue.best_rank(info[:, :, PRB], 10)
+                for subp in PRB:
+                    if(np.max(info[0:2, antenna_comb, subp]) > 1):
+                        print("what!?")
 
-                print("Has rank greater or equal than 2")
-                print(ue.has_at_least_one_prb_with_rank_2(rank[ue.position-first_ue]))
+                    pot_senal += TX_power_sc * (info[0:2, antenna_comb, subp]**2)
+                    # print(pot_senal.shape)
+                SNR[ue.position-first_ue][PRBs.index(PRB)] = 20*np.log(np.min(np.diagonal(pot_senal))/ (N_0 * B/len(PRBs)))
+                if(SNR[ue.position-first_ue][PRBs.index(PRB)] > 40):
+                    print("que paso!!!!!!!!!!!!")
 
-                ue.switch_position(scene + 1, 100000, 201)
+                if (SNR[ue.position-first_ue][PRBs.index(PRB)] < 0):
+                    SNR[ue.position-first_ue][PRBs.index(PRB)] = 0
 
-                # if ue.is_dynamic:
-                #     print ("it is dynamic")
-                #     # print ("has a speed of")
-                #     # print (ue.speed)
-                #     print(ue.position)
-  
+            # print("Has rank greater or equal than 2")
+            # print(ue.has_at_least_one_prb_with_rank_2(rank[ue.position-first_ue]))
+
+            ue.switch_position(scene + 1, 100000, 201, refresh_rate, ue_separation)
+
+            # if ue.is_dynamic:
+            #     print ("it is dynamic")
+            #     print ("has a speed of")
+            #     print (ue.speed)
+            #     print ("The SNR is : ")
+            #     print (SNR[0][5])
+            #     print ("The position is:")
+            #     print (ue.position)
+
         np.savez(UEg_out_dir + "/Data_" + str(scene), SNR=SNR, rank=rank , DoA=DoA)
 
         

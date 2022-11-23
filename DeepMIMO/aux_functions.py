@@ -5,8 +5,8 @@ def create_conf_dict(center_freq, bandwidth, cant_sc, is_dynamic, refresh_rate, 
         "cant_prb" : int(cant_sc/12),
         "n_sc": cant_sc,
         "is_dynamic": is_dynamic,
-        "refresh_rate": refresh_rate,
-        "sim_duration": sim_duration,
+        "refresh_rate": int(refresh_rate),
+        "sim_duration": int(sim_duration),
     }
 
     conf_dict.update(create_ue_group_dict(UEgroups))

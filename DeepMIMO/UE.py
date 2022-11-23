@@ -18,23 +18,23 @@ class UE:
         # returns true if the UE is part of the dynamic UEs
         return self.is_dynamic
 
-    def switch_position(self, scene, scenario_column_size, scenario_rows_size):
+    def switch_position(self, scene, scenario_column_size, scenario_rows_size, refresh_rate, ue_separation):
 
         # Updates the position a dynamic UE moves to
         if (self.type_of_movement == 'vertical'):
-            steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(0.001, 0.01)*scene)*scenario_rows_size
+            steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(refresh_rate, ue_separation)*scene)*scenario_rows_size
             self.position = scenario_column_size - (self.position + steps_to_move)%scenario_column_size if(self.position + steps_to_move > scenario_column_size) else (self.position + steps_to_move)%scenario_column_size
 
         if (self.type_of_movement == 'horizontal'):
-            steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(0.001, 0.01)*scene)
+            steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(refresh_rate, ue_separation)*scene)
             self.position = scenario_rows_size - (self.position + steps_to_move)%scenario_rows_size if(self.position + steps_to_move > scenario_rows_size) else (self.position + steps_to_move)%scenario_rows_size
             
 
-    def convert_speed_to_steps_per_scene(self, scene_duration, ue_separation):
+    def convert_speed_to_steps_per_scene(self, refresh_rate, ue_separation):
 
         # Returns the steps per scene a dynamic UE moves
 
-        steps_per_scene = self.speed * scene_duration / ue_separation
+        steps_per_scene = self.speed * refresh_rate / ue_separation
 
         return steps_per_scene
 
