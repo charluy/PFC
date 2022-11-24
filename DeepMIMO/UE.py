@@ -18,16 +18,18 @@ class UE:
         # returns true if the UE is part of the dynamic UEs
         return self.is_dynamic
 
-    def switch_position(self, scene, scenario_column_size, scenario_rows_size, refresh_rate, ue_separation):
+    def switch_position(self, scene, scenario_columns_size, scenario_rows_size, refresh_rate, ue_separation):
+
+        size_scenario_m_1 = (scenario_rows_size-1)*scenario_columns_size
 
         # Updates the position a dynamic UE moves to
         if (self.type_of_movement == 'vertical'):
             steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(refresh_rate, ue_separation)*scene)*scenario_rows_size
-            self.position = scenario_column_size - (self.position + steps_to_move)%scenario_column_size if(self.position + steps_to_move > scenario_column_size) else (self.position + steps_to_move)%scenario_column_size
+            self.position = (size_scenario_m_1+self.get_column(scenario_columns_size)) - (steps_to_move%size_scenario_m_1)%scenario_rows_size if(steps_to_move > size_scenario_m_1 + self.get_column(scenario_columns_size)) else steps_to_move
 
         if (self.type_of_movement == 'horizontal'):
             steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(refresh_rate, ue_separation)*scene)
-            self.position = scenario_rows_size - (self.position + steps_to_move)%scenario_rows_size if(self.position + steps_to_move > scenario_rows_size) else (self.position + steps_to_move)%scenario_rows_size
+            self.position = self.get_row(scenario_rows_size)*scenario_rows_size - steps_to_move%scenario_rows_size if(steps_to_move > scenario_rows_size) else self.position + steps_to_move
             
 
     def convert_speed_to_steps_per_scene(self, refresh_rate, ue_separation):
@@ -37,6 +39,13 @@ class UE:
         steps_per_scene = self.speed * refresh_rate / ue_separation
 
         return steps_per_scene
+
+
+    def get_row(self, scenario_row_size):
+        return math.ceil(self.position/scenario_row_size)
+
+    def get_column(self, scenario_column_size):
+        return math.ceil(self.position/scenario_column_size)
 
     def user_rank(self, channel_matrix, threshold):
         # print("The matrix shape is ")

@@ -21,8 +21,8 @@ scenario_name = "I2_28B"
 is_dynamic = True 
 cant_dynamic_ues = 1 # Lets try first with one dynamic user
 # cant_bs = 1 # Number of base station in DeepMIMO selected scenario
-n_ue_rows = 701
-n_ue_columns = 201
+n_ue_rows = 201
+n_ue_columns = 701
 center_freq = 28 # In GHz
 ue_separation = 0.01
 
@@ -31,7 +31,7 @@ out_dir = "../scenarios/I2_28B/" # Could be another scenario, so the path would 
 bandwidth = 0.05 # In GHz
 cant_sc = round_up_sc_to_12_and_8(bandwidth)
 # TX_power = (10**(-2))*cant_sc
-TX_power_sc = 3*(10**(-6))  # float(TX_power)/cant_sc
+TX_power_sc = 6*(10**(-3))  # float(TX_power)/cant_sc
 N_0 = abs(10**(-18)) # Noise level
 # UEgroups = [(0,9),(100,149)] First try Mateo3
 # dyn_UE_positions = [{"position": 7, "UEgroup": 0, "type_of_movement": "vertical"}, {"position": 110, "UEgroup": 1, "type_of_movement": "horizontal"}] First try Mateo3
@@ -71,7 +71,7 @@ parameters['ue_antenna']['shape'] = np.array([1,1,1])
 
 # We define the amount of rows to be used in this case being more than 201 because we have more than 2 rows
 parameters['user_row_first'] = 1
-parameters['user_row_last'] = 500
+parameters['user_row_last'] = 675
 
 pp = pprint.PrettyPrinter(indent=4)
 pp.pprint(parameters)
@@ -98,35 +98,38 @@ PRBs = [range(0, cant_sc)[i * 12:(i + 1) * 12] for i in range((cant_sc + 12 - 1)
 
 # Create UEgroups channel information files for each scene
 
-for scene in range(0, cant_scenes):
-    print("the scene is "  +  str(scene))
-    for idUEg, UEg in enumerate(UEgroups):
-        UEg_out_dir = out_dir + "UEgroup_" + str(idUEg)
-        try:
-            os.mkdir(UEg_out_dir)
-        except:
-            pass
-        first_ue = UEg[0]
-        last_ue = UEg[1]
-        cant_ue = last_ue - first_ue + 1 # Numbers of UE in the UEgroup
 
-        # RX_ant = 0
-        # TX_ant = 0
-        SNR = np.zeros(shape = (cant_ue, len(PRBs)))
-        rank = np.ones(shape = (cant_ue, len(PRBs)))
-        print("the shape of the rank is")
-        print(rank.shape)
-        DoA = np.zeros(shape = (cant_ue, 2))
+for idUEg, UEg in enumerate(UEgroups):
+    UEg_out_dir = out_dir + "UEgroup_" + str(idUEg)
+    try:
+        os.mkdir(UEg_out_dir)
+    except:
+        pass
+    first_ue = UEg[0]
+    last_ue = UEg[1]
+    cant_ue = last_ue - first_ue + 1 # Numbers of UE in the UEgroup
 
-        # Create the UEs for each UE group
-        UEs = []
+    # RX_ant = 0
+    # TX_ant = 0
+    SNR = np.zeros(shape = (cant_ue, len(PRBs)))
+    rank = np.ones(shape = (cant_ue, len(PRBs)))
+    print("the shape of the rank is")
+    print(rank.shape)
+    DoA = np.zeros(shape = (cant_ue, 2))
 
-        for ue in range(first_ue, last_ue+1):
-            user = UE(idUEg, ue)
-            UEs.append(user)
+    # Create the UEs for each UE group
+    UEs = []
 
-        UEs[0].is_dynamic = True
-        UEs[0].speed = 0.22
+    for ue in range(first_ue, last_ue+1):
+        user = UE(idUEg, ue)
+        UEs.append(user)
+
+    UEs[0].is_dynamic = True
+    UEs[0].speed = 0.22
+
+
+    for scene in range(0, cant_scenes):
+        print("the scene is "  +  str(scene))
 
         for ue in UEs:
 
@@ -137,8 +140,8 @@ for scene in range(0, cant_scenes):
             # print(info.shape)
 
             # Save DoA
-            DoA[ue.position-first_ue][0] = dataset[bs]['user']['paths'][ue.position]['DoA_phi'][0]
-            DoA[ue.position-first_ue][1] = dataset[bs]['user']['paths'][ue.position]['DoA_theta'][1]
+            DoA[UEs.index(ue)][0] = dataset[bs]['user']['paths'][ue.position]['DoA_phi'][0]
+            DoA[UEs.index(ue)][1] = dataset[bs]['user']['paths'][ue.position]['DoA_theta'][1]
 
             # print ('the shape of the DoA is ')
             # print (DoA[ue.position-first_ue].shape)
@@ -148,7 +151,7 @@ for scene in range(0, cant_scenes):
 
             pot_senal = 0
             for PRB in PRBs:
-                # rank[ue.position-first_ue][PRBs.index(PRB)], antenna_comb = ue.best_rank(info[:, :, PRB], 10, np.max(parameters['ue_antenna']['shape']))
+                # rank[UEs.index(ue)][PRBs.index(PRB)], antenna_comb = ue.best_rank(info[:, :, PRB], 10, np.max(parameters['ue_antenna']['shape']))
                 for subp in PRB:
                     pot_senal += TX_power_sc * (info[0,0,subp]**2)
                     # print(pot_senal.shape)
@@ -164,25 +167,20 @@ for scene in range(0, cant_scenes):
 
                 SNR[UEs.index(ue)][PRBs.index(PRB)] = 10*np.log10(pot_senal/ (N_0 * BW_PRB))
 
-                print("\n-------\n")
+                # print("\n-------\n")
 
-                if (SNR[UEs.index(ue)][PRBs.index(PRB)] < 0):
-                    print(f"la potencia es {pot_senal}")
+                # if (SNR[UEs.index(ue)][PRBs.index(PRB)] < 0):
+                #     print(f"la potencia es {pot_senal}")
+                #     SNR[UEs.index(ue)][PRBs.index(PRB)] = 0.5
 
-                if (SNR[UEs.index(ue)][PRBs.index(PRB)] > 40):
-                    print(f"mas que 40 la potencia es {pot_senal}")
+                # if (SNR[UEs.index(ue)][PRBs.index(PRB)] > 40):
+                #     print(f"mas que 40 la potencia es {pot_senal}")
 
-                if(SNR[UEs.index(ue)][PRBs.index(PRB)] > 40):
-                    print("que paso!!!!!!!!!!!!")
-
-                if (SNR[UEs.index(ue)][PRBs.index(PRB)] < 0):
-                    print("rari")
-                    print(SNR[UEs.index(ue)][PRBs.index(PRB)])
 
             # print("Has rank greater or equal than 2")
             # print(ue.has_at_least_one_prb_with_rank_2(rank[ue.position-first_ue]))
 
-            ue.switch_position(scene + 1, 100000, 201, refresh_rate, ue_separation)
+            ue.switch_position(scene + 1, n_ue_columns, n_ue_rows, refresh_rate, ue_separation)
 
             if ue.is_dynamic:
                 print ("it is dynamic")
@@ -195,4 +193,4 @@ for scene in range(0, cant_scenes):
 
         np.savez(UEg_out_dir + "/Data_" + str(scene), SNR=SNR, rank=rank , DoA=DoA)
 
-        
+    
