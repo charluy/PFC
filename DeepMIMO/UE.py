@@ -5,6 +5,7 @@ import math
 class UE: 
 
     def __init__(self, UE_group, position, is_dynamic = False, speed = 0, type_of_movement = 'vertical', antenas = 1):
+        self.i_position = position
         self.position = position
         self.is_dynamic = is_dynamic
         self.speed = speed
@@ -25,11 +26,17 @@ class UE:
         # Updates the position a dynamic UE moves to
         if (self.type_of_movement == 'vertical'):
             steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(refresh_rate, ue_separation)*scene)*scenario_rows_size
-            self.position = (size_scenario_m_1+self.get_column(scenario_columns_size)) - (steps_to_move%size_scenario_m_1)%scenario_rows_size if(steps_to_move > size_scenario_m_1 + self.get_column(scenario_columns_size)) else steps_to_move
+            self.position = (size_scenario_m_1+self.get_column(scenario_columns_size)) - (steps_to_move%size_scenario_m_1)%scenario_rows_size if(steps_to_move > size_scenario_m_1 + self.get_column(scenario_columns_size)) else self.i_position + steps_to_move
 
         if (self.type_of_movement == 'horizontal'):
             steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(refresh_rate, ue_separation)*scene)
-            self.position = self.get_row(scenario_rows_size)*scenario_rows_size - steps_to_move%scenario_rows_size if(steps_to_move > scenario_rows_size) else self.position + steps_to_move
+            if (self.i_position%scenario_rows_size + steps_to_move > scenario_rows_size):
+                if (math.floor((self.i_position%scenario_rows_size + steps_to_move)/scenario_rows_size)%2 != 0 ):
+                    self.position = self.get_row(scenario_rows_size)*scenario_rows_size - (self.i_position%scenario_rows_size + steps_to_move%scenario_rows_size)%scenario_rows_size
+                else:
+                    self.position = (self.get_row(scenario_rows_size) - 1)*scenario_rows_size + (self.i_position%scenario_rows_size + steps_to_move%scenario_rows_size)%scenario_rows_size
+            else: 
+                self.position = self.i_position + steps_to_move%scenario_rows_size
             
 
     def convert_speed_to_steps_per_scene(self, refresh_rate, ue_separation):
@@ -42,10 +49,12 @@ class UE:
 
 
     def get_row(self, scenario_row_size):
-        return math.ceil(self.position/scenario_row_size)
+        row = math.ceil(self.i_position/scenario_row_size) if(self.i_position%scenario_row_size != 0) else math.ceil(self.i_position/scenario_row_size) + 1
+        return row
 
     def get_column(self, scenario_column_size):
-        return math.ceil(self.position/scenario_column_size)
+        column = math.ceil(self.i_position/scenario_column_size) if (self.i_position > 0) else 1
+        return column
 
     def user_rank(self, channel_matrix, threshold):
         # print("The matrix shape is ")

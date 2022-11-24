@@ -113,8 +113,8 @@ for idUEg, UEg in enumerate(UEgroups):
     # TX_ant = 0
     SNR = np.zeros(shape = (cant_ue, len(PRBs)))
     rank = np.ones(shape = (cant_ue, len(PRBs)))
-    print("the shape of the rank is")
-    print(rank.shape)
+    # print("the shape of the rank is")
+    # print(rank.shape)
     DoA = np.zeros(shape = (cant_ue, 2))
 
     # Create the UEs for each UE group
@@ -125,6 +125,8 @@ for idUEg, UEg in enumerate(UEgroups):
         UEs.append(user)
 
     UEs[0].is_dynamic = True
+    UEs[0].type_of_movement = 'vertical'
+    UEs[0].i_position = 101
     UEs[0].speed = 0.22
 
 
@@ -183,12 +185,11 @@ for idUEg, UEg in enumerate(UEgroups):
             ue.switch_position(scene + 1, n_ue_columns, n_ue_rows, refresh_rate, ue_separation)
 
             if ue.is_dynamic:
-                print ("it is dynamic")
-                print ("has a speed of")
-                print (ue.speed)
-                print ("The SNR is : ")
-                print (SNR[0][5])
-                print ("The position is:")
+                # print ("it is dynamic")
+                # print ("has a speed of")
+                # print (ue.speed)
+                # print ("The SNR is : ")
+                # print (SNR[0][5])
                 print (ue.position)
 
         np.savez(UEg_out_dir + "/Data_" + str(scene), SNR=SNR, rank=rank , DoA=DoA)
