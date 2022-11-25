@@ -17,17 +17,17 @@ from UE import UE
 BW_PRB = 180000
 
 # DeepMIMO scene characteristics
-scenario_name = "I2_28B"
+scenario_name = "O1_28"
 is_dynamic = True 
 cant_dynamic_ues = 1 # Lets try first with one dynamic user
 # cant_bs = 1 # Number of base station in DeepMIMO selected scenario
-n_ue_rows = 201
-n_ue_columns = 701
+n_ue_rows = 181  # Number of UEs in a row
+n_ue_columns = 2751-1650+1  # Number of UEs in a column
 center_freq = 28 # In GHz
-ue_separation = 0.01
+ue_separation = 0.2  # 0.02
 
 # Simulation parameters
-out_dir = "../scenarios/I2_28B/" # Could be another scenario, so the path would be different
+out_dir = "../scenarios/O1_28/" # Could be another scenario, so the path would be different
 bandwidth = 0.05 # In GHz
 cant_sc = round_up_sc_to_12_and_8(bandwidth)
 # TX_power = (10**(-2))*cant_sc
@@ -36,10 +36,10 @@ N_0 = abs(10**(-18)) # Noise level
 # UEgroups = [(0,9),(100,149)] First try Mateo3
 # dyn_UE_positions = [{"position": 7, "UEgroup": 0, "type_of_movement": "vertical"}, {"position": 110, "UEgroup": 1, "type_of_movement": "horizontal"}] First try Mateo3
 UEgroups = [(0, 0)]
-dyn_UE_positions = [{"position": 0, "UEgroup": 0, "type_of_movement": "vertical"}]
-cant_scenes = 300 
-refresh_rate = 0.1 # In seconds
-bs = 0
+# dyn_UE_positions = [{"position": 0, "UEgroup": 0, "type_of_movement": "vertical"}]
+cant_scenes = 50
+refresh_rate = 1 # In seconds
+bs = 12
 
 # Load the default parameters
 parameters = DeepMIMO.default_params()
@@ -49,7 +49,7 @@ parameters['scenario'] = scenario_name
 
 # Set the main folder containing extracted scenarios
 parameters['dataset_folder'] = "scenarios"
-active_bs = [1]  # id for id in range(1,cant_bs+1)
+active_bs = [bs]  # id for id in range(1,cant_bs+1)
 parameters['active_BS'] = np.array(active_bs)
 
 # For OFDM channels, set - Creo que no es necesario.
@@ -70,8 +70,11 @@ parameters['bs_antenna']['shape'] = np.array([1,1,1])
 parameters['ue_antenna']['shape'] = np.array([1,1,1])
 
 # We define the amount of rows to be used in this case being more than 201 because we have more than 2 rows
-parameters['user_row_first'] = 1
-parameters['user_row_last'] = 675
+parameters['user_row_first'] = 1650
+parameters['user_row_last'] = 2751  # 2751
+
+# We only consider 1 ray tracing path for simplicity
+parameters['num_paths'] = 1
 
 pp = pprint.PrettyPrinter(indent=4)
 pp.pprint(parameters)
@@ -126,8 +129,8 @@ for idUEg, UEg in enumerate(UEgroups):
 
     UEs[0].is_dynamic = True
     UEs[0].type_of_movement = 'vertical'
-    UEs[0].i_position = 101
-    UEs[0].speed = 0.22
+    UEs[0].position = 0
+    UEs[0].speed = 4.35
 
 
     for scene in range(0, cant_scenes):
@@ -137,13 +140,14 @@ for idUEg, UEg in enumerate(UEgroups):
 
             # info = np.absolute(dataset[bs]['user']['channel'][ue.position][RX_ant][TX_ant])
 
-            info = np.absolute(dataset[bs]['user']['channel'][ue.position])
+            info = np.absolute(dataset[0]['user']['channel'][ue.position])
+            print(f"The position is: {dataset[0]['user']['location'][ue.position]}")
             # Plot Channel magnitud response por portadora OFDM:
             # print(info.shape)
 
             # Save DoA
-            DoA[UEs.index(ue)][0] = dataset[bs]['user']['paths'][ue.position]['DoA_phi']
-            DoA[UEs.index(ue)][1] = dataset[bs]['user']['paths'][ue.position]['DoA_theta']
+            DoA[UEs.index(ue)][0] = dataset[0]['user']['paths'][ue.position]['DoA_phi']
+            DoA[UEs.index(ue)][1] = dataset[0]['user']['paths'][ue.position]['DoA_theta']
 
             # print ('the shape of the DoA is ')
             # print (DoA[ue.position-first_ue].shape)
@@ -171,12 +175,12 @@ for idUEg, UEg in enumerate(UEgroups):
 
                 # print("\n-------\n")
 
-                # if (SNR[UEs.index(ue)][PRBs.index(PRB)] < 0):
-                #     print(f"la potencia es {pot_senal}")
-                #     SNR[UEs.index(ue)][PRBs.index(PRB)] = 0.5
+                if (SNR[UEs.index(ue)][PRBs.index(PRB)] < 0):
+                    print(f"la potencia es {pot_senal}")
+                    SNR[UEs.index(ue)][PRBs.index(PRB)] = 0.5
 
-                # if (SNR[UEs.index(ue)][PRBs.index(PRB)] > 40):
-                #     print(f"mas que 40 la potencia es {pot_senal}")
+                if (SNR[UEs.index(ue)][PRBs.index(PRB)] > 40):
+                    print(f"mas que 40 la potencia es {pot_senal}")
 
 
             # print("Has rank greater or equal than 2")

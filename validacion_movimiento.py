@@ -15,7 +15,7 @@ DEEPMIMO_CONFIG_FILE = 'config.json'
 #              Cell & Simulation parameters
 #------------------------------------------------------------------------------------------------------
 
-scenario_dir = "scenarios/I2_28B/"
+scenario_dir = "scenarios/O1_28_colab/"
 
 deep_mimo_parameters = CellDeepMimo.json_to_dict_config(scenario_dir + DEEPMIMO_CONFIG_FILE)
 
@@ -82,7 +82,7 @@ UEgroup0 = UeGroupDeepMimo(  # 8Mbps each
     label = 'eMBB',
     dly = 1,  # milisecond
     avlty = '',
-    schedulerType = 'NUM',  # 'DF'
+    schedulerType = 'DF',  # 'DF' 'NUM'
     mmMd = 'MU',  # For NUM inter slice schedulerMIMO mode must be 'MU'
     lyrs = 0,  # Dont apply for NUM inter slice scheduler
     cell = cell1,
