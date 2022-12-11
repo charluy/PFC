@@ -25,16 +25,19 @@ N_RE = 14
 THRESHOLD_ANGLE = 2
 DELTA = 0.7
 
+MIN_PRB_GROUP_TO_ASSIGN = 8
+
 
 class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
     def __init__(self, ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch, slice):
-        
+
         super(IntraSliceSchedulerDeepMimo, self).__init__(
             ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch
         )
         self.slice = slice
         self.queue = TbQueueDeepMimo()
-    
+        self.assignation_start_index = 0
+
     def resAlloc(self):
         """
             This method allocates cell specifics PRBs to the different connected UEs.
@@ -42,33 +45,90 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
 
         # In order to allocate resources to UEs must do:
         #   - assigned_prbs: Set base prb list assigned to the UE.
-        #   - PRBs: Cant of prb assigned to the scheduler in the given numerology.
-        #   - assigned_layers: Cant of layers given to the UE.
+        #   - PRBs: Set cant of prb assigned to the scheduler in the given numerology.
+        #   - assigned_layers: Set cant of layers given to the UE.
 
         base_prbs_to_assign = self.slice.assigned_base_prbs
-        cant_prb_in_a_group = self.ttiByms
-        ue_with_bearer_packets = [self.ues[ue_key] for ue_key in list(self.ues.keys()) if self.ues[ue_key].has_packet_in_bearer()]
 
-        # This implementation have no sense but is intenden as an example.
-        for ue in ue_with_bearer_packets:
-            ue.assigned_base_prbs = base_prbs_to_assign
-            ue.assigned_layers = 2
+        cant_prb_in_a_group = self.ttiByms
+
+        cant_base_prb = len(base_prbs_to_assign)
+
+        cant_prbs_groups = cant_base_prb//MIN_PRB_GROUP_TO_ASSIGN
+
+        # ue_with_bearer_packets = [self.ues[ue_key] for ue_key in list(self.ues.keys()) if self.ues[ue_key].has_packet_in_bearer()]
+
+        ue_list = [self.ues[ue_key] for ue_key in list(self.ues.keys())]
+
+        cant_ues = len(ue_list)
+
+        # Clean previous resource allocation.
+        for ue in ue_list:
+            ue.assigned_base_prbs = []
+            ue.assigned_layers = 0
+            ue.prbs = 0  # len(ue.assigned_base_prbs)/cant_prb_in_a_group
+
+        if cant_ues < 1:
+            return
+
+        cant_prb_groups_assigned = [0 for ue_index in range(0, cant_ues)]
+        assigned_prbs = []  # Is a list of lists.
+
+        while cant_prbs_groups > 0:
+            cant_prb_groups_assigned[self.assignation_start_index] += 1
+            self.assignation_start_index = (self.assignation_start_index + 1) % cant_ues
+            cant_prbs_groups -= 1
+
+        first_prb = 0
+        for ue_index, ue in enumerate(ue_list):
+
+            cant_prbs_to_ue = cant_prb_groups_assigned[ue_index] * MIN_PRB_GROUP_TO_ASSIGN
+            last_prb = first_prb + cant_prbs_to_ue
+            prbs_to_ue = self.slice.assigned_base_prbs[first_prb:last_prb]
+
+            ue.assigned_base_prbs = prbs_to_ue
+            ue.assigned_layers = 1
             ue.prbs = len(ue.assigned_base_prbs)/cant_prb_in_a_group
+            
+            first_prb = last_prb
 
         # Print Resource Allocation
         self.printResAlloc()
 
+    # def resAlloc(self):
+    #     """
+    #         This method allocates cell specifics PRBs to the different connected UEs.
+    #     """
+
+    #     # In order to allocate resources to UEs must do:
+    #     #   - assigned_prbs: Set base prb list assigned to the UE.
+    #     #   - PRBs: Cant of prb assigned to the scheduler in the given numerology.
+    #     #   - assigned_layers: Cant of layers given to the UE.
+
+    #     base_prbs_to_assign = self.slice.assigned_base_prbs
+    #     cant_prb_in_a_group = self.ttiByms
+    #     ue_with_bearer_packets = [self.ues[ue_key] for ue_key in list(self.ues.keys()) if self.ues[ue_key].has_packet_in_bearer()]
+
+    #     # This implementation have no sense but is intenden as an example.
+    #     for ue in ue_with_bearer_packets:
+    #         ue.assigned_base_prbs = base_prbs_to_assign
+    #         ue.assigned_layers = 2
+    #         ue.prbs = len(ue.assigned_base_prbs)/cant_prb_in_a_group
+
+    #     # Print Resource Allocation
+    #     self.printResAlloc()
+
     def queueUpdate(self):
         """
-            This method overrides the one in the parent class. 
-            This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling 
+            This method overrides the one in the parent class.
+            This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling
             bytes without verify that the resource blocks used match with the assigned ones.
             It makes Resource allocation and insert generated TBs into Scheduler queue in a TTI.
         """
 
         self.ueLst = list(self.ues.keys())
         self.resAlloc()
-        
+
         # RB limit no va mas, ahora se confia en la asignacion de resAlloc.
 
         for ue_key in self.ueLst:
@@ -89,7 +149,7 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
 
                 if self.dbMd:
                     self.printQtb() # Print TB queue in debbug mode
-    
+
     def setMod(self,u,nprb):
         """
             This method sets the MCS and TBS for each TB over the specifics PRBs frequencies.
@@ -112,7 +172,7 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
         else:
             tbls = 0 # PF Scheduler
         return [tbls, mo, Qm, mcsi]
-    
+
     def setTBS(self, r, qm, uldl, ue, fr, nprb): # TS 38.214 procedure
         OHtable = {'DL':{'FR1':0.14,'FR2':0.18},'UL':{'FR1':0.08,'FR2':0.10}}
         OH = OHtable[uldl][fr]
@@ -121,16 +181,16 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
         tbs = Nre__*nprb*r*qm*self.ues[ue].assigned_layers
 
         return tbs
-    
+
     def get_subcarrier_spacing(self):
         return self.slice.scs.lower()
-    
+
     def get_assigned_PRBs(self):
         return self.slice.assigned_base_prbs
-    
+
     def get_ue_list(self):
         return [self.ues[ue_key] for ue_key in list(self.ues.keys()) if self.ues[ue_key].has_packet_in_bearer()]
-    
+
     def clean_ues_assignation(self):
         for ue_key in list(self.ues.keys()):
             self.ues[ue_key].assigned_base_prbs = []
@@ -146,7 +206,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         )
         self.ri = {}
         self.ri_mean = {}
-        
+
     def resAlloc(self):
         """This method implements Network Utility Maximization resource allocation between the different connected UEs.
         This method overwrites the resAlloc method from IntraSliceScheduler class.
@@ -183,8 +243,8 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         """This method returns a list containing subslists of PRBs_base taking into account the subcarrier spacing of the slice"""
         PRB_relative_size = SCS_TO_NUM[scs]
         PRBs = [PRBs_base[i:i+PRB_relative_size] for i in range(0, len(PRBs_base), PRB_relative_size)]
-        return PRBs   
-    
+        return PRBs
+
     def set_sched_groups_easy_division(self):
         """This method divides the UEs in sched groups of 2 UEs"""
         max_index_groups = 0
@@ -197,7 +257,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         for group in self.generate_all_possible_groups():
             if len(group) == 1 or self.valid_group(group) == True:
                 sched_groups.append(group)
-        
+
         return sched_groups
 
     def generate_all_possible_groups(self):
@@ -212,7 +272,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         for i in range(len(group)):
             for j in range(i):
                 is_a_valid_group = abs(group[i].radioLinks.degree[0] - group[i].radioLinks.degree[0]) > THRESHOLD_ANGLE
-        
+
         return is_a_valid_group
 
 
@@ -231,7 +291,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         numfactor = 0
         for ue in sched_group:
             numfactor += self.compute_UE_throughput(ue, PRB)*(1/self.get_ri_mean_factor(self.get_ue_list().index(ue)))
-        
+
         return numfactor
 
     def get_ri_mean_factor(self, ue_key):

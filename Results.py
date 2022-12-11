@@ -104,7 +104,7 @@ def getKPIs(dir,stFile,users,num_users,sinr_0,measInterv,tSim):
             plr[ue].append(0)
         rcvdBytes = rBytes[ue][len(rBytes[ue])-1] - rBytes[ue][len(rBytes[ue])-2]
         deltaT = times[ue][len(times[ue])-1] - times[ue][len(times[ue])-2]
-        th[ue].append((float(rcvdBytes)*8000)/(deltaT*1024*1024))
+        th[ue].append((float(rcvdBytes)*8000)/(deltaT*1000*1000))
 
     # update resource Use (rU) to consider %
     for t in range(len(times[users[0].id])):
@@ -168,7 +168,7 @@ def getKPIsInter(dir,stFile,slices,num_slices):
             plr[slice].append(0)
         rcvdBytes = rBytes[slice][len(rBytes[slice])-1] - rBytes[slice][len(rBytes[slice])-2]
         deltaT = times[slice][len(times[slice])-1] - times[slice][len(times[slice])-2]
-        th[slice].append((float(rcvdBytes)*8000)/(deltaT*1024*1024))
+        th[slice].append((float(rcvdBytes)*8000)/(deltaT*1000*1000))
 
     return times,rU,plr,th,cnx,buf,met
 
