@@ -26,7 +26,8 @@ class UE:
         # Updates the position a dynamic UE moves to
         if (self.type_of_movement == 'vertical'):
             steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(refresh_rate, ue_separation)*scene)*scenario_rows_size
-            self.position = (size_scenario_m_1+self.get_column(scenario_columns_size)) - (steps_to_move%size_scenario_m_1)%scenario_rows_size if(steps_to_move > size_scenario_m_1 + self.get_column(scenario_columns_size)) else self.i_position + steps_to_move
+            # self.position = (size_scenario_m_1+self.get_column(scenario_columns_size)) - (steps_to_move%size_scenario_m_1)%scenario_rows_size if(steps_to_move > size_scenario_m_1 + self.get_column(scenario_columns_size)) else self.i_position + steps_to_move
+            self.position = self.i_position + steps_to_move
 
         if (self.type_of_movement == 'horizontal'):
             steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(refresh_rate, ue_separation)*scene)

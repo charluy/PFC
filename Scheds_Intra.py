@@ -169,7 +169,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                     maxInd = np.argmax(sched_groups_numfactors)
                     for ue in UE_sched_groups[maxInd]:
                         ue.add_resources(
-                            base_prbs_list=PRB, layers = 2, cant_prbs = 1
+                            base_prbs_list=PRB, layers = self.get_layers(UE_sched_groups[maxInd], PRB), cant_prbs = 1
                             # layers= min(UE_sched_groups[maxInd], key=attrgetter('radioLinks.rank')), cant_prbs=1
                         )
                         ue_key = ue.id
@@ -177,7 +177,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                         self.ri_mean[ue_key] = self.get_ri_mean_factor(ue_key)
 
         # Print Resource Allocation
-        # self.printResAlloc(UE_sched_groups, sched_groups_numfactors)
+        #self.printResAlloc(UE_sched_groups, sched_groups_numfactors)
 
     def convert_PRBs_base_to_PRBs(self, PRBs_base, scs):
         """This method returns a list containing subslists of PRBs_base taking into account the subcarrier spacing of the slice"""
@@ -210,8 +210,14 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
     def valid_group(self, group):
         is_a_valid_group = False
         for i in range(len(group)):
-            for j in range(i):
-                is_a_valid_group = abs(group[i].radioLinks.degree[0] - group[i].radioLinks.degree[0]) > THRESHOLD_ANGLE
+            for j in range(i+1, len(group)):
+                is_a_valid_group = abs(group[i].radioLinks.degree[0] - group[j].radioLinks.degree[0]) > THRESHOLD_ANGLE
+
+                if is_a_valid_group == False:
+                    break
+            
+            if is_a_valid_group == False:
+                break
         
         return is_a_valid_group
 
@@ -262,6 +268,15 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         throughput= layers*N_RE*math.log(1+B*snr, 2)
         return float(throughput)
 
+    def get_layers(self, sched_group, PRB):
+        layers = min(sched_group[0].radioLinks.rank[PRB])
+        print(f"the layers are {layers}")
+        for ue in sched_group:
+            if min(ue.radioLinks.rank[PRB]) < layers:
+                layers = min(ue.radioLinks.rank[PRB])
+
+        return layers
+
     def printResAlloc(self, sched_groups, sched_groups_numfactors):
         if self.dbMd:
             self.printDebData('+++++++++++ Res Alloc +++++++++++++'+'<br>')
@@ -269,7 +284,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
             resAllocMsg = ''
             for sched_group in sched_groups:
                 for ue in sched_group:
-                    resAllocMsg = resAllocMsg + ue + sched_group + ' '+str(self.ues[ue].prbs)+'<br>'
+                    resAllocMsg = resAllocMsg + ue + sched_group + ' ' +str(self.ues[ue].prbs) + '<br>'
             self.printDebData(resAllocMsg)
             self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
 
