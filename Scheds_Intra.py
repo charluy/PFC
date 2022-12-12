@@ -206,6 +206,10 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         )
         self.ri = {}
         self.ri_mean = {}
+        self.csv_file = None
+        self.headers = []
+        self.csv_writer = None
+        self.current_tti = 0
 
     def resAlloc(self):
         """This method implements Network Utility Maximization resource allocation between the different connected UEs.
@@ -222,11 +226,14 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
             PRBs_base = self.get_assigned_PRBs()
             PRBs = self.convert_PRBs_base_to_PRBs(PRBs_base, scs)
 
+            PRB_UE_list_csv = list()
+
             UE_sched_groups = self.set_sched_groups()
             if schd=='NUM' and len(list(self.ues.keys()))>0:
                 for PRB in PRBs:
                     sched_groups_numfactors = self.get_sched_groups_num_factors(UE_sched_groups, PRB)
                     maxInd = np.argmax(sched_groups_numfactors)
+                    ue_name_csv = ''
                     for ue in UE_sched_groups[maxInd]:
                         ue.add_resources(
                             base_prbs_list=PRB, layers = 2, cant_prbs = 1
@@ -235,9 +242,52 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                         ue_key = ue.id
                         self.ri[ue_key] = self.get_ri(ue_key) + self.compute_UE_throughput(ue, PRB)
                         self.ri_mean[ue_key] = self.get_ri_mean_factor(ue_key)
+                        ue_name_csv += f"{ue.id},"
+                    
+                    PRB_UE_list_csv.append(ue_name_csv)
+                
+                self.assignation_to_file(PRBs, PRB_UE_list_csv)
 
         # Print Resource Allocation
         # self.printResAlloc(UE_sched_groups, sched_groups_numfactors)
+
+    def assignation_to_file(self, prb_list, ue_by_prb_list):
+
+        time = self.current_tti
+        self.current_tti += 1
+
+        csv_headers = ['time']
+        csv_headers.extend(prb_list)
+
+        csv_data = [time]
+        csv_data.extend(ue_by_prb_list)
+
+        self.write_csv_file(csv_headers, csv_data, time)
+
+    def write_csv_file(self, headers, prb_data, time):
+
+        import csv
+
+        f = self.csv_file
+        new_file = self.headers != headers
+        time = int(time)
+
+        if time == 0:
+            # puedo borrar todos los archivos csv
+            pass
+
+        if new_file or not f:
+            if f:
+                f.close()
+            self.headers = headers
+            f = open(f'csv_files/{time}.csv', 'w')
+            self.csv_file = f
+            self.csv_writer = csv.writer(f)
+            self.csv_writer.writerow(headers)
+        
+        self.csv_writer.writerow(prb_data)
+
+        
 
     def convert_PRBs_base_to_PRBs(self, PRBs_base, scs):
         """This method returns a list containing subslists of PRBs_base taking into account the subcarrier spacing of the slice"""
