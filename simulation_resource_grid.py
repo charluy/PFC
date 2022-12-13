@@ -15,7 +15,7 @@ DEEPMIMO_CONFIG_FILE = 'config.json'
 #              Cell & Simulation parameters
 #------------------------------------------------------------------------------------------------------
 
-scenario_dir = "scenarios/O1_28_full/"
+scenario_dir = "scenarios/mateo3/"
 
 deep_mimo_parameters = CellDeepMimo.json_to_dict_config(scenario_dir + DEEPMIMO_CONFIG_FILE)
 
@@ -43,7 +43,7 @@ debMode = True # to show queues information by TTI during simulation
 """Boolean indicating if debugging mode is active. In that case, an html log file will be generated with schedulers operation.
 Note that in simulations with a high number of UEs this file can turn quite heavy."""
 
-measInterv = 1000.0 # interval between meassures
+measInterv = 100.0 # interval between meassures
 """Time interval (in milliseconds) between meassures for statistics reports."""
 
 interSliceSchGr = 3000.0 # interSlice scheduler time granularity
@@ -80,9 +80,9 @@ UEgroup0 = UeGroupDeepMimo(  # 8Mbps each
     parrDL = 100,  # miliseconds between packets
     parrUL = 0,  # miliseconds between packets
     label = 'eMBB',
-    dly = 1,  # milisecond
+    dly = 100,  # milisecond
     avlty = '',
-    schedulerType = 'DF',  # 'DF' 'NUM'
+    schedulerType = 'NUM',  # 'DF'
     mmMd = 'MU',  # For NUM inter slice schedulerMIMO mode must be 'MU'
     lyrs = 0,  # Dont apply for NUM inter slice scheduler
     cell = cell1,
@@ -91,11 +91,34 @@ UEgroup0 = UeGroupDeepMimo(  # 8Mbps each
     env = env,
     ueg_dir = scenario_dir + 'UEgroup_0',
     is_dynamic = is_dynamic,
-    scene_duration = scene_duration
+    scene_duration = 8000
 )
 """Group of users with defined traffic profile for which the sumulation will run."""
 
-UEgroups = [UEgroup0]
+UEgroup1 = UeGroupDeepMimo(  # 240kbps each
+    nuDL = 5,
+    nuUL = 0,
+    pszDL = 3000,  # bytes
+    pszUL = 0,  # bytes
+    parrDL = 100,  # miliseconds between packets
+    parrUL = 0,  # miliseconds between packets
+    label = 'eMBB2',
+    dly = 20,  # milisecond
+    avlty = '',
+    schedulerType = 'NUM',  # 'DF'
+    mmMd = 'MU',  # For NUM inter slice schedulerMIMO mode must be 'MU'
+    lyrs = 0,  # Dont apply for NUM inter slice scheduler
+    cell = cell1,
+    t_sim = simulation_duration,
+    measInterv = measInterv,
+    env = env,
+    ueg_dir = scenario_dir + 'UEgroup_1',
+    is_dynamic = is_dynamic,
+    scene_duration = 8000
+)
+"""Group of users with defined traffic profile for which the sumulation will run."""
+
+UEgroups = [UEgroup0, UEgroup1]
 """UE group list for the configured simulation"""
 
 for ueG in UEgroups:
@@ -132,6 +155,8 @@ for slice in list(interSliceSche1.slices.keys()):
         interSliceSche1.slices[slice].schedulerDL.dbFile.close()
         if slice != 'LTE':
             interSliceSche1.slices[slice].schedulerUL.dbFile.close()
+        # Only for NUM scheduler results:
+        interSliceSche1.slices[slice].schedulerDL.plot_assignation()
 
 #----------------------------------------------------------------
 #                          RESULTS
