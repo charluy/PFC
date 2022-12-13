@@ -95,30 +95,30 @@ UEgroup0 = UeGroupDeepMimo(  # 8Mbps each
 )
 """Group of users with defined traffic profile for which the sumulation will run."""
 
-# UEgroup1 = UeGroupDeepMimo(  # 240kbps each
-#     nuDL = 5,
-#     nuUL = 0,
-#     pszDL = 3000,  # bytes
-#     pszUL = 0,  # bytes
-#     parrDL = 100,  # miliseconds between packets
-#     parrUL = 0,  # miliseconds between packets
-#     label = 'eMBB2',
-#     dly = 20,  # milisecond
-#     avlty = '',
-#     schedulerType = 'NUM',  # 'DF'
-#     mmMd = 'MU',  # For NUM inter slice schedulerMIMO mode must be 'MU'
-#     lyrs = 0,  # Dont apply for NUM inter slice scheduler
-#     cell = cell1,
-#     t_sim = simulation_duration,
-#     measInterv = measInterv,
-#     env = env,
-#     ueg_dir = scenario_dir + 'UEgroup_1',
-#     is_dynamic = is_dynamic,
-#     scene_duration = 8000
-# )
+UEgroup1 = UeGroupDeepMimo(  # 240kbps each
+    nuDL = 5,
+    nuUL = 0,
+    pszDL = 3000,  # bytes
+    pszUL = 0,  # bytes
+    parrDL = 100,  # miliseconds between packets
+    parrUL = 0,  # miliseconds between packets
+    label = 'eMBB2',
+    dly = 20,  # milisecond
+    avlty = '',
+    schedulerType = 'NUM',  # 'DF'
+    mmMd = 'MU',  # For NUM inter slice schedulerMIMO mode must be 'MU'
+    lyrs = 0,  # Dont apply for NUM inter slice scheduler
+    cell = cell1,
+    t_sim = simulation_duration,
+    measInterv = measInterv,
+    env = env,
+    ueg_dir = scenario_dir + 'UEgroup_1',
+    is_dynamic = is_dynamic,
+    scene_duration = 8000
+)
 """Group of users with defined traffic profile for which the sumulation will run."""
 
-UEgroups = [UEgroup0]
+UEgroups = [UEgroup0, UEgroup1]
 """UE group list for the configured simulation"""
 
 for ueG in UEgroups:
@@ -155,6 +155,8 @@ for slice in list(interSliceSche1.slices.keys()):
         interSliceSche1.slices[slice].schedulerDL.dbFile.close()
         if slice != 'LTE':
             interSliceSche1.slices[slice].schedulerUL.dbFile.close()
+        # Only for NUM scheduler results:
+        interSliceSche1.slices[slice].schedulerDL.plot_assignation()
 
 #----------------------------------------------------------------
 #                          RESULTS

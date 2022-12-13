@@ -422,6 +422,9 @@ class IntraSliceScheduler():
                 resAllocMsg = resAllocMsg + ue +': '+ str(self.ues[ue].prbs)+' PRBs'+'<br>'
             self.printDebData(resAllocMsg)
             self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
+    
+    def plot_assignation(self):
+        pass
 
 #--------------------------------------------------------------
 

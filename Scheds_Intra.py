@@ -261,7 +261,16 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
     def store_assigantion_data(self, prb_list, ue_by_prb_list):
 
         time = self.plot_current_tti
-        self.plot_current_tti += 1
+
+        # If the PRBs list change must plot previous results
+        if self.plot_prbs != prb_list:
+            if self.plot_prbs:
+                self.plot_assignation()
+            self.plot_prbs = prb_list
+            self.ue_assignation_list = dict()
+        else:
+            self.plot_current_tti += 1
+
         self.plot_time_list.append(time)
 
         for index, prb in enumerate(prb_list):
@@ -271,18 +280,14 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
             else:
                 self.ue_assignation_list[key] = [ue_by_prb_list[index]]
         
-        if time == 5990:
-            self.plot_assignation()
-    
-    def __del__(self):
-        print("\n\nEJECUTA DESTRUCTOR\n\n")
-        # if self.plot_current_tti:
+        # if time == 5990:
         #     self.plot_assignation()
-        # super(NUM_Scheduler, self).__del__()
     
     def plot_assignation(self):
 
         import numpy as np
+        from matplotlib import pyplot as plt
+        import matplotlib.patches as mpatches
 
         print("\n\n")
         print(f"CURRENT TTI: {self.plot_current_tti}")
@@ -309,6 +314,36 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
 
         print(f"COMB UE ASSIGNATION: {ue_comb_list}")
         print("\n\n")
+
+        # Initialize plot
+        fig, ax = plt.subplots(1,1)
+        fig.set_size_inches(15,2+int(cant_prbs/2))
+        
+        # Print assignation as image
+        im = ax.imshow(assignation_grid, interpolation='nearest', aspect='auto')
+
+        # Prepare axis labels and ticks
+        y_label_ticks = [index for index, prb in enumerate(self.ue_assignation_list.keys())]
+        y_labels_list = [f"PRB {prb}".replace(' [', '_[').replace(' ','') for prb in self.ue_assignation_list.keys()]
+        ax.set_yticks(y_label_ticks)
+        ax.set_yticklabels(y_labels_list)
+        ax.set_xlabel('TTI number')
+
+        # Colors
+        ue_comb_value = [ind for ind, _ in enumerate(ue_comb_list)]
+        colors = [ im.cmap(im.norm(value)) for value in ue_comb_value]
+        patches = [mpatches.Patch(color=colors[i], label=ue_comb_list[i] ) for i in ue_comb_value]
+        # ax.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.9, box.height])
+        ax.legend(handles=patches, loc='center left', bbox_to_anchor=(1, 0.5))
+
+        # Separate PRBs with horizontal lines
+        for index in y_label_ticks[:-1]:
+            ax.axhline(y=index+0.5, color='r', linestyle='--')
+        
+        # Save result
+        plt.savefig(f'Figures/{self.sliceLabel}_to_tti_{self.plot_current_tti}_resource_grid.png')
 
     def assignation_to_file(self, prb_list, ue_by_prb_list):
 

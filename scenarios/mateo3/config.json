@@ -1,7 +1,7 @@
 {
     "frecuency": 28,
     "bandwidth": 50,
-    "cant_prb": 8,
+    "cant_prb": 16,
     "comment_cant_prb": 272,
     "n_sc": 3264,
     "is_dynamic": true,
