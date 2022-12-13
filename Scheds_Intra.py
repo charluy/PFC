@@ -172,9 +172,21 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                             base_prbs_list=PRB, layers = self.get_layers(UE_sched_groups[maxInd], PRB), cant_prbs = 1
                             # layers= min(UE_sched_groups[maxInd], key=attrgetter('radioLinks.rank')), cant_prbs=1
                         )
-                        ue_key = ue.id
-                        self.ri[ue_key] = self.get_ri(ue_key) + self.compute_UE_throughput(ue, PRB)
-                        self.ri_mean[ue_key] = self.get_ri_mean_factor(ue_key)
+                        # ue_key = ue.id
+                        # self.ri[ue_key] = self.get_ri(ue_key) + self.compute_UE_throughput(ue, PRB)
+                        # self.ri_mean[ue_key] = self.get_ri_mean_factor(ue_key)
+                
+                for ue in self.get_ue_list():
+                    ue_key = ue.id
+                    ri_ue = 0
+                    ue_base_prbs = ue.assigned_base_prbs
+                    ue_prbs = self.convert_PRBs_base_to_PRBs(ue_base_prbs, scs)
+                    for PRB in ue_prbs:
+                        #print(f"the PRB is {PRB} for ue {ue_key}")
+                        ri_ue = ri_ue + self.compute_UE_throughput(ue, PRB)
+
+                    self.ri[ue_key] = ri_ue
+                    self.ri_mean[ue_key] = self.get_ri_mean_factor(ue_key)
 
         # Print Resource Allocation
         #self.printResAlloc(UE_sched_groups, sched_groups_numfactors)
@@ -270,7 +282,6 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
 
     def get_layers(self, sched_group, PRB):
         layers = min(sched_group[0].radioLinks.rank[PRB])
-        print(f"the layers are {layers}")
         for ue in sched_group:
             if min(ue.radioLinks.rank[PRB]) < layers:
                 layers = min(ue.radioLinks.rank[PRB])
