@@ -252,7 +252,6 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                     
                     PRB_UE_list.append(ue_name_csv)
                 
-                # self.assignation_to_file(PRBs, PRB_UE_list_csv)
                 self.store_assigantion_data(PRBs, PRB_UE_list)
 
         # Print Resource Allocation
@@ -279,9 +278,6 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                 self.ue_assignation_list[key].append(ue_by_prb_list[index])
             else:
                 self.ue_assignation_list[key] = [ue_by_prb_list[index]]
-        
-        # if time == 5990:
-        #     self.plot_assignation()
     
     def plot_assignation(self):
 
@@ -343,45 +339,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
             ax.axhline(y=index+0.5, color='r', linestyle='--')
         
         # Save result
-        plt.savefig(f'Figures/{self.sliceLabel}_to_tti_{self.plot_current_tti}_resource_grid.png')
-
-    def assignation_to_file(self, prb_list, ue_by_prb_list):
-
-        time = self.current_tti
-        self.current_tti += 1
-
-        csv_headers = ['time']
-        csv_headers.extend(prb_list)
-
-        csv_data = [time]
-        csv_data.extend(ue_by_prb_list)
-
-        self.write_csv_file(csv_headers, csv_data, time)
-
-    def write_csv_file(self, headers, prb_data, time):
-
-        import csv
-
-        f = self.csv_file
-        new_file = self.headers != headers
-        time = int(time)
-
-        if time == 0:
-            # puedo borrar todos los archivos csv
-            pass
-
-        if new_file or not f:
-            if f:
-                f.close()
-            self.headers = headers
-            f = open(f'csv_files/{time}.csv', 'w')
-            self.csv_file = f
-            self.csv_writer = csv.writer(f)
-            self.csv_writer.writerow(headers)
-        
-        self.csv_writer.writerow(prb_data)
-
-        
+        plt.savefig(f'Figures/{self.sliceLabel}_to_tti_{self.plot_current_tti}_resource_grid.png')       
 
     def convert_PRBs_base_to_PRBs(self, PRBs_base, scs):
         """This method returns a list containing subslists of PRBs_base taking into account the subcarrier spacing of the slice"""
