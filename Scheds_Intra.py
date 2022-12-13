@@ -206,10 +206,16 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         )
         self.ri = {}
         self.ri_mean = {}
+
         self.csv_file = None
         self.headers = []
         self.csv_writer = None
         self.current_tti = 0
+
+        self.plot_current_tti = 0
+        self.plot_time_list = []
+        self.plot_prbs = []
+        self.ue_assignation_list = dict()
 
     def resAlloc(self):
         """This method implements Network Utility Maximization resource allocation between the different connected UEs.
@@ -226,7 +232,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
             PRBs_base = self.get_assigned_PRBs()
             PRBs = self.convert_PRBs_base_to_PRBs(PRBs_base, scs)
 
-            PRB_UE_list_csv = list()
+            PRB_UE_list = list()
 
             UE_sched_groups = self.set_sched_groups()
             if schd=='NUM' and len(list(self.ues.keys()))>0:
@@ -244,12 +250,65 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                         self.ri_mean[ue_key] = self.get_ri_mean_factor(ue_key)
                         ue_name_csv += f"{ue.id},"
                     
-                    PRB_UE_list_csv.append(ue_name_csv)
+                    PRB_UE_list.append(ue_name_csv)
                 
-                self.assignation_to_file(PRBs, PRB_UE_list_csv)
+                # self.assignation_to_file(PRBs, PRB_UE_list_csv)
+                self.store_assigantion_data(PRBs, PRB_UE_list)
 
         # Print Resource Allocation
         # self.printResAlloc(UE_sched_groups, sched_groups_numfactors)
+
+    def store_assigantion_data(self, prb_list, ue_by_prb_list):
+
+        time = self.plot_current_tti
+        self.plot_current_tti += 1
+        self.plot_time_list.append(time)
+
+        for index, prb in enumerate(prb_list):
+            key = str(prb)
+            if self.ue_assignation_list.get(key):
+                self.ue_assignation_list[key].append(ue_by_prb_list[index])
+            else:
+                self.ue_assignation_list[key] = [ue_by_prb_list[index]]
+        
+        if time == 5990:
+            self.plot_assignation()
+    
+    def __del__(self):
+        print("\n\nEJECUTA DESTRUCTOR\n\n")
+        # if self.plot_current_tti:
+        #     self.plot_assignation()
+        # super(NUM_Scheduler, self).__del__()
+    
+    def plot_assignation(self):
+
+        import numpy as np
+
+        print("\n\n")
+        print(f"CURRENT TTI: {self.plot_current_tti}")
+        print(f"LEN PLOT TIME LIST: {len(self.plot_time_list)}")
+        print(f"ASSINATION LIST:")
+        for key in self.ue_assignation_list.keys():
+            print(f"\tPRB {key} LEN: {len(self.ue_assignation_list[key])}")
+
+        ue_comb_list = []
+        for key in self.ue_assignation_list.keys():
+            for assignation in self.ue_assignation_list[key]:
+                assig = str(assignation).strip(',')
+                if assig not in ue_comb_list:
+                    ue_comb_list.append(assig)
+        
+        cant_prbs = len(self.ue_assignation_list.keys())
+        cant_slots = len(self.plot_time_list)
+        assignation_grid = np.zeros(shape=(cant_prbs, cant_slots))
+
+        for index_prb, prb in enumerate(self.ue_assignation_list.keys()):
+            for index_slot, ues_in_slot in enumerate(self.ue_assignation_list[prb]):
+                ue_comb_str = str(ues_in_slot).strip(',')
+                assignation_grid[index_prb, index_slot] = ue_comb_list.index(ue_comb_str)
+
+        print(f"COMB UE ASSIGNATION: {ue_comb_list}")
+        print("\n\n")
 
     def assignation_to_file(self, prb_list, ue_by_prb_list):
 
