@@ -248,7 +248,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         """This method computes the NUM_factor for a given sched_group"""
         numfactor = 0
         for ue in sched_group:
-            numfactor += self.compute_UE_throughput(ue, PRB)*(1/self.get_ri_mean_factor(self.get_ue_list().index(ue)))
+            numfactor += self.compute_UE_throughput(ue, PRB)*(1/self.get_ri_mean_factor(ue.id))
         
         return numfactor
 
@@ -258,10 +258,12 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
 
     def get_ri_mean(self, ue_key):
         self.ri_mean.setdefault(ue_key, 0.0)
+        # print(f"the ri_mean has the value of {self.ri_mean[ue_key]} and the ue is {ue_key}")
         return self.ri_mean[ue_key]
 
     def get_ri(self, ue_key):
         self.ri.setdefault(ue_key, 10*np.random.rand())
+        # print(f"the ri has the value of {self.ri[ue_key]} and the ue is {ue_key}")
         return self.ri[ue_key]
 
     def compute_UE_sched_groups_throughput(self, ue, sched_groups, PRB):
