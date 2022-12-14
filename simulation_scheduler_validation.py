@@ -15,7 +15,7 @@ DEEPMIMO_CONFIG_FILE = 'config.json'
 #              Cell & Simulation parameters
 #------------------------------------------------------------------------------------------------------
 
-scenario_dir = "scenarios/mateo3/"
+scenario_dir = "scenarios/validacion_scheduler/"
 
 deep_mimo_parameters = CellDeepMimo.json_to_dict_config(scenario_dir + DEEPMIMO_CONFIG_FILE)
 
@@ -72,10 +72,10 @@ cell1 = CellDeepMimo(
 interSliceSche1 = cell1.interSliceSched
 """interSliceScheduler instance"""
 
-UEgroup0 = UeGroupDeepMimo(  # 8Mbps each
-    nuDL = 3,
+UEgroup0 = UeGroupDeepMimo(  # 4Mbps each
+    nuDL = 2,
     nuUL = 0,
-    pszDL = 100000,  # bytes
+    pszDL = 50000,  # bytes
     pszUL = 0,  # bytes
     parrDL = 100,  # miliseconds between packets
     parrUL = 0,  # miliseconds between packets
@@ -93,32 +93,10 @@ UEgroup0 = UeGroupDeepMimo(  # 8Mbps each
     is_dynamic = is_dynamic,
     scene_duration = scene_duration
 )
+
 """Group of users with defined traffic profile for which the sumulation will run."""
 
-UEgroup1 = UeGroupDeepMimo(  # 240kbps each
-    nuDL = 5,
-    nuUL = 0,
-    pszDL = 3000,  # bytes
-    pszUL = 0,  # bytes
-    parrDL = 100,  # miliseconds between packets
-    parrUL = 0,  # miliseconds between packets
-    label = 'eMBB2',
-    dly = 20,  # milisecond
-    avlty = '',
-    schedulerType = 'NUM',  # 'DF'
-    mmMd = 'MU',  # For NUM inter slice schedulerMIMO mode must be 'MU'
-    lyrs = 0,  # Dont apply for NUM inter slice scheduler
-    cell = cell1,
-    t_sim = simulation_duration,
-    measInterv = measInterv,
-    env = env,
-    ueg_dir = scenario_dir + 'UEgroup_1',
-    is_dynamic = is_dynamic,
-    scene_duration = scene_duration
-)
-"""Group of users with defined traffic profile for which the sumulation will run."""
-
-UEgroups = [UEgroup0, UEgroup1]
+UEgroups = [UEgroup0]
 """UE group list for the configured simulation"""
 
 for ueG in UEgroups:
