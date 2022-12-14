@@ -15,7 +15,7 @@ DEEPMIMO_CONFIG_FILE = 'config.json'
 #              Cell & Simulation parameters
 #------------------------------------------------------------------------------------------------------
 
-scenario_dir = "scenarios/validacion_scheduler/"
+scenario_dir = "scenarios/Escenario2/"
 
 deep_mimo_parameters = CellDeepMimo.json_to_dict_config(scenario_dir + DEEPMIMO_CONFIG_FILE)
 
@@ -46,7 +46,7 @@ Note that in simulations with a high number of UEs this file can turn quite heav
 measInterv = 100.0 # interval between meassures
 """Time interval (in milliseconds) between meassures for statistics reports."""
 
-interSliceSchGr = 3000.0 # interSlice scheduler time granularity
+interSliceSchGr = 6000.0 # interSlice scheduler time granularity
 """Inter slice scheduler time granularity in milliseconds."""
 
 #-----------------------------------------------------------------
