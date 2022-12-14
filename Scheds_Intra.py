@@ -207,11 +207,6 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         self.ri = {}
         self.ri_mean = {}
 
-        self.csv_file = None
-        self.headers = []
-        self.csv_writer = None
-        self.current_tti = 0
-
         self.plot_current_tti = 0
         self.plot_time_list = []
         self.plot_prbs = []
@@ -224,13 +219,13 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         Network Utility Maximization scheduler allocates all PRBs in the slice to the UE with the biggest metric.
         Metric for each group of UE is calculated as argmax of a special function."""
 
-        if self.get_ue_list():
+        self.clean_ues_assignation()
+        schd = self.schType[0:3]
+        scs = self.get_subcarrier_spacing()
+        PRBs_base = self.get_assigned_PRBs()
+        PRBs = self.convert_PRBs_base_to_PRBs(PRBs_base, scs)
 
-            self.clean_ues_assignation()
-            schd = self.schType[0:3]
-            scs = self.get_subcarrier_spacing()
-            PRBs_base = self.get_assigned_PRBs()
-            PRBs = self.convert_PRBs_base_to_PRBs(PRBs_base, scs)
+        if self.get_ue_list():
 
             PRB_UE_list = list()
 
@@ -261,11 +256,17 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
 
 
                 self.store_assigantion_data(PRBs, PRB_UE_list)
+            
+        else:
+            self.store_assigantion_data(PRBs, ['IDLE' for _ in PRBs])
 
         # Print Resource Allocation
         #self.printResAlloc(UE_sched_groups, sched_groups_numfactors)
 
     def store_assigantion_data(self, prb_list, ue_by_prb_list):
+
+        if not ue_by_prb_list:
+            ue_by_prb_list = ['IDLE' for _ in prb_list]
 
         time = self.plot_current_tti
 
@@ -293,12 +294,12 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         from matplotlib import pyplot as plt
         import matplotlib.patches as mpatches
 
-        print("\n\n")
-        print(f"CURRENT TTI: {self.plot_current_tti}")
-        print(f"LEN PLOT TIME LIST: {len(self.plot_time_list)}")
-        print(f"ASSINATION LIST:")
-        for key in self.ue_assignation_list.keys():
-            print(f"\tPRB {key} LEN: {len(self.ue_assignation_list[key])}")
+        # print("\n\n")
+        # print(f"CURRENT TTI: {self.plot_current_tti}")
+        # print(f"LEN PLOT TIME LIST: {len(self.plot_time_list)}")
+        # print(f"ASSINATION LIST:")
+        # for key in self.ue_assignation_list.keys():
+        #     print(f"\tPRB {key} LEN: {len(self.ue_assignation_list[key])}")
 
         ue_comb_list = []
         for key in self.ue_assignation_list.keys():
@@ -309,15 +310,17 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
 
         cant_prbs = len(self.ue_assignation_list.keys())
         cant_slots = len(self.plot_time_list)
+        cant_slots = int(cant_slots*0.83)  # Comment this line to show full time resurce grid
         assignation_grid = np.zeros(shape=(cant_prbs, cant_slots))
 
         for index_prb, prb in enumerate(self.ue_assignation_list.keys()):
             for index_slot, ues_in_slot in enumerate(self.ue_assignation_list[prb]):
-                ue_comb_str = str(ues_in_slot).strip(',')
-                assignation_grid[index_prb, index_slot] = ue_comb_list.index(ue_comb_str)
+                if index_slot < cant_slots:
+                    ue_comb_str = str(ues_in_slot).strip(',')
+                    assignation_grid[index_prb, index_slot] = ue_comb_list.index(ue_comb_str)
 
-        print(f"COMB UE ASSIGNATION: {ue_comb_list}")
-        print("\n\n")
+        # print(f"COMB UE ASSIGNATION: {ue_comb_list}")
+        # print("\n\n")
 
         # Initialize plot
         fig, ax = plt.subplots(1,1)
