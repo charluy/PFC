@@ -22,7 +22,7 @@ SCS_TO_NUM = {
 
 BER = 0.01
 N_RE = 14
-THRESHOLD_ANGLE = 2
+THRESHOLD_ANGLE = 19
 DELTA = 0.7
 
 MIN_PRB_GROUP_TO_ASSIGN = 8
@@ -89,7 +89,7 @@ class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
             ue.assigned_base_prbs = prbs_to_ue
             ue.assigned_layers = 1
             ue.prbs = len(ue.assigned_base_prbs)/cant_prb_in_a_group
-            
+
             first_prb = last_prb
 
         # Print Resource Allocation
@@ -245,9 +245,9 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                             base_prbs_list=PRB, layers = self.get_layers(UE_sched_groups[maxInd], PRB), cant_prbs = 1
                         )
                         ue_name_csv += f"{ue.id},"
-                    
+
                     PRB_UE_list.append(ue_name_csv)
-                
+
                 for ue in self.get_ue_list():
                     ue_key = ue.id
                     ri_ue = 0
@@ -259,7 +259,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                     self.ri[ue_key] = ri_ue
                     self.ri_mean[ue_key] = self.get_ri_mean_factor(ue_key)
 
-                
+
                 self.store_assigantion_data(PRBs, PRB_UE_list)
 
         # Print Resource Allocation
@@ -286,7 +286,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                 self.ue_assignation_list[key].append(ue_by_prb_list[index])
             else:
                 self.ue_assignation_list[key] = [ue_by_prb_list[index]]
-    
+
     def plot_assignation(self):
 
         import numpy as np
@@ -306,7 +306,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
                 assig = str(assignation).strip(',')
                 if assig not in ue_comb_list:
                     ue_comb_list.append(assig)
-        
+
         cant_prbs = len(self.ue_assignation_list.keys())
         cant_slots = len(self.plot_time_list)
         assignation_grid = np.zeros(shape=(cant_prbs, cant_slots))
@@ -322,7 +322,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         # Initialize plot
         fig, ax = plt.subplots(1,1)
         fig.set_size_inches(15,2+int(cant_prbs/2))
-        
+
         # Print assignation as image
         im = ax.imshow(assignation_grid, interpolation='nearest', aspect='auto')
 
@@ -345,9 +345,9 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         # Separate PRBs with horizontal lines
         for index in y_label_ticks[:-1]:
             ax.axhline(y=index+0.5, color='r', linestyle='--')
-        
+
         # Save result
-        plt.savefig(f'Figures/{self.sliceLabel}_to_tti_{self.plot_current_tti}_resource_grid.png')       
+        plt.savefig(f'Figures/{self.sliceLabel}_to_tti_{self.plot_current_tti}_resource_grid.png')
 
     def convert_PRBs_base_to_PRBs(self, PRBs_base, scs):
         """This method returns a list containing subslists of PRBs_base taking into account the subcarrier spacing of the slice"""
@@ -385,10 +385,10 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
 
                 if is_a_valid_group == False:
                     break
-            
+
             if is_a_valid_group == False:
                 break
-        
+
         return is_a_valid_group
 
 
@@ -406,7 +406,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         numfactor = 0
         for ue in sched_group:
             numfactor += self.compute_UE_throughput(ue, PRB)*(1/self.get_ri_mean_factor(ue.id))
-        
+
         return numfactor
 
     def get_ri_mean_factor(self, ue_key):
@@ -414,7 +414,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         return ri_mean_factor
 
     def get_ri_mean(self, ue_key):
-        self.ri_mean.setdefault(ue_key, 0.0)
+        self.ri_mean.setdefault(ue_key, 0.01)
         return self.ri_mean[ue_key]
 
     def get_ri(self, ue_key):
