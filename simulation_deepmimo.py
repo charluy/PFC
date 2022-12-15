@@ -15,7 +15,7 @@ DEEPMIMO_CONFIG_FILE = 'config.json'
 #              Cell & Simulation parameters
 #------------------------------------------------------------------------------------------------------
 
-scenario_dir = "scenarios/mateo3/"
+scenario_dir = "scenarios/Escenario1/"
 
 deep_mimo_parameters = CellDeepMimo.json_to_dict_config(scenario_dir + DEEPMIMO_CONFIG_FILE)
 
@@ -72,15 +72,15 @@ cell1 = CellDeepMimo(
 interSliceSche1 = cell1.interSliceSched
 """interSliceScheduler instance"""
 
-UEgroup0 = UeGroupDeepMimo(  # 8Mbps each
-    nuDL = 3,
+UEgroup0 = UeGroupDeepMimo(  # 480kbps each
+    nuDL = 2,
     nuUL = 0,
-    pszDL = 100000,  # bytes
+    pszDL = 6000,  # bytes
     pszUL = 0,  # bytes
     parrDL = 100,  # miliseconds between packets
     parrUL = 0,  # miliseconds between packets
-    label = 'eMBB',
-    dly = 1,  # milisecond
+    label = 'URLLC',
+    dly = 20,  # milisecond
     avlty = '',
     schedulerType = 'NUM',  # 'DF'
     mmMd = 'MU',  # For NUM inter slice schedulerMIMO mode must be 'MU'
@@ -91,18 +91,18 @@ UEgroup0 = UeGroupDeepMimo(  # 8Mbps each
     env = env,
     ueg_dir = scenario_dir + 'UEgroup_0',
     is_dynamic = is_dynamic,
-    scene_duration = 8000
+    scene_duration = scene_duration
 )
 """Group of users with defined traffic profile for which the sumulation will run."""
 
-UEgroup1 = UeGroupDeepMimo(  # 240kbps each
-    nuDL = 5,
+UEgroup1 = UeGroupDeepMimo(  # 2Mbps each
+    nuDL = 2,
     nuUL = 0,
-    pszDL = 3000,  # bytes
+    pszDL = 25000,  # bytes
     pszUL = 0,  # bytes
     parrDL = 100,  # miliseconds between packets
     parrUL = 0,  # miliseconds between packets
-    label = 'eMBB2',
+    label = 'eMBB',
     dly = 20,  # milisecond
     avlty = '',
     schedulerType = 'NUM',  # 'DF'
@@ -114,7 +114,7 @@ UEgroup1 = UeGroupDeepMimo(  # 240kbps each
     env = env,
     ueg_dir = scenario_dir + 'UEgroup_1',
     is_dynamic = is_dynamic,
-    scene_duration = 8000
+    scene_duration = scene_duration
 )
 """Group of users with defined traffic profile for which the sumulation will run."""
 
@@ -155,6 +155,9 @@ for slice in list(interSliceSche1.slices.keys()):
         interSliceSche1.slices[slice].schedulerDL.dbFile.close()
         if slice != 'LTE':
             interSliceSche1.slices[slice].schedulerUL.dbFile.close()
+        # Only for NUM scheduler results:
+        interSliceSche1.slices[slice].schedulerDL.plot_assignation()
+        interSliceSche1.slices[slice].schedulerUL.plot_assignation()
 
 #----------------------------------------------------------------
 #                          RESULTS

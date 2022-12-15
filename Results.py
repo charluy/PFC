@@ -262,4 +262,4 @@ def makePlotsInter(dir,times,res,plr,th,cnx,buf,met,bw,schIn,gr):
     makeInterSlicePlot('ResUse-'+dir,'sliceResUse'      ,times,res,bw,schIn,gr)
     makeInterSlicePlot('Connections-'+dir,'Connections' ,times,cnx,bw,schIn,gr)
     makeInterSlicePlot('Packets in Buffer-'+dir,'PBuff' ,times,buf,bw,schIn,gr)
-    makeInterSlicePlot('Metric-'+dir,'Metric'           ,times,met,bw,schIn,gr)
+    # makeInterSlicePlot('Metric-'+dir,'Metric'           ,times,met,bw,schIn,gr)

@@ -294,6 +294,9 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
         from matplotlib import pyplot as plt
         import matplotlib.patches as mpatches
 
+        if self.plot_current_tti == 0:
+            return
+
         # print("\n\n")
         # print(f"CURRENT TTI: {self.plot_current_tti}")
         # print(f"LEN PLOT TIME LIST: {len(self.plot_time_list)}")
@@ -350,7 +353,7 @@ class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
             ax.axhline(y=index+0.5, color='r', linestyle='--')
 
         # Save result
-        plt.savefig(f'Figures/{self.sliceLabel}_to_tti_{self.plot_current_tti}_resource_grid.png')
+        plt.savefig(f'Figures/{self.sliceLabel}_{self.direction}_tti_{self.plot_current_tti}_resource_grid.png')
 
     def convert_PRBs_base_to_PRBs(self, PRBs_base, scs):
         """This method returns a list containing subslists of PRBs_base taking into account the subcarrier spacing of the slice"""
