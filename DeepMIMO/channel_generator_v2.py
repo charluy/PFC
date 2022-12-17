@@ -110,8 +110,6 @@ for idUEg, UEg in enumerate(UEgroups):
 
     SNR = np.zeros(shape = (cant_ue, len(PRBs)))
     rank = np.ones(shape = (cant_ue, len(PRBs)))
-    # print("the shape of the rank is")
-    # print(rank.shape)
     DoA = np.zeros(shape = (cant_ue, 2))
 
     # Create the UEs for each UE group
@@ -130,27 +128,17 @@ for idUEg, UEg in enumerate(UEgroups):
 
         for ue in UEs:
 
-            # info = np.absolute(dataset[bs]['user']['channel'][ue.position][RX_ant][TX_ant])
-
             info = np.absolute(dataset[bs]['user']['channel'][ue.position])
-            # Plot Channel magnitud response por portadora OFDM:
-            # print(info.shape)
 
             # Save DoA
-            DoA[UEs.index(ue)][0] = dataset[bs]['user']['paths'][ue.position]['DoA_phi']
-            DoA[UEs.index(ue)][1] = dataset[bs]['user']['paths'][ue.position]['DoA_theta']
-
-            # print ('the shape of the DoA is ')
-            # print (DoA[ue.position-first_ue].shape)
-
+            DoA[UEs.index(ue)][0] = dataset[bs]['user']['paths'][ue.position]['DoD_phi']
+            DoA[UEs.index(ue)][1] = dataset[bs]['user']['paths'][ue.position]['DoD_theta']
 
             # Estimate SINR in OFDM carrier:
 
-            pot_senal = 0
             for PRB in PRBs:
+                pot_senal = 0
                 rank[UEs.index(ue)][PRBs.index(PRB)], antenna_comb = ue.best_rank(info[:, :, PRB], THRESHOLD_RANK , np.max(parameters['ue_antenna']['shape']))
-                # print(f"the antenna comb is {antenna_comb}")
-                print(f"the rank is {rank}")
                 for subp in PRB:
                     pot_senal += TX_power_sc * (info[0:np.max(parameters['ue_antenna']['shape']), antenna_comb, subp]**2)
                 
@@ -158,18 +146,8 @@ for idUEg, UEg in enumerate(UEgroups):
                 SNR[UEs.index(ue)][PRBs.index(PRB)] = 10*np.log10(np.min(np.diagonal(pot_senal))/ (N_0 * BW_PRB))
                 print(SNR[UEs.index(ue)][PRBs.index(PRB)])
 
-                # print("\n-------\n")
-
                 if (SNR[UEs.index(ue)][PRBs.index(PRB)] < 0):
-                    print(f"la potencia es {pot_senal}")
                     SNR[UEs.index(ue)][PRBs.index(PRB)] = 0.5
-
-                if (SNR[UEs.index(ue)][PRBs.index(PRB)] > 40):
-                    print(f"mas que 40 la potencia es {pot_senal}")
-
-
-            # print("Has rank greater or equal than 2")
-            # print(ue.has_at_least_one_prb_with_rank_2(rank[ue.position-first_ue]))
 
             ue.switch_position(scene + 1, n_ue_columns, n_ue_rows, refresh_rate, ue_separation)
 

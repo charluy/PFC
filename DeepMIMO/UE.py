@@ -15,7 +15,6 @@ class UE:
 
 
     def is_dynamic_UE(self):
-
         # returns true if the UE is part of the dynamic UEs
         return self.is_dynamic
 
@@ -26,8 +25,7 @@ class UE:
         # Updates the position a dynamic UE moves to
         if (self.type_of_movement == 'vertical'):
             steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(refresh_rate, ue_separation)*scene)*scenario_rows_size
-            # self.position = (size_scenario_m_1+self.get_column(scenario_columns_size)) - (steps_to_move%size_scenario_m_1)%scenario_rows_size if(steps_to_move > size_scenario_m_1 + self.get_column(scenario_columns_size)) else self.i_position + steps_to_move
-            self.position = self.i_position + steps_to_move
+            self.position = (size_scenario_m_1+self.get_column(scenario_columns_size)) - (steps_to_move%size_scenario_m_1)%scenario_rows_size if(steps_to_move > size_scenario_m_1 + self.get_column(scenario_columns_size)) else self.i_position + steps_to_move
 
         if (self.type_of_movement == 'horizontal'):
             steps_to_move = math.floor(self.convert_speed_to_steps_per_scene(refresh_rate, ue_separation)*scene)
@@ -58,24 +56,11 @@ class UE:
         return column
 
     def user_rank(self, channel_matrix, threshold):
-        # print("The matrix shape is ")
-        # print(channel_matrix.shape)
         average_matrix = np.mean(channel_matrix, axis = 2)
-        # print("The average matrix is")
-        # print(average_matrix)
         s,v,d = np.linalg.svd(average_matrix)
-        # print("The S matrix is")
-        # print(s)
-        # print("The V Matrix is ")
-        # print(v)
-        # print("The D matrix is ")
-        # print(d)
         max_element = np.max(v)
-        # print("The max element is")
-        # print(max_element)
         rank = self.matrix_rank(v, max_element, threshold)
-        # print("the rank is ")
-        # print(rank)
+
         return rank
 
     def best_rank(self, channel_matrix, threshold, ue_antennas):
