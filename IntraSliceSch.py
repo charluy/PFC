@@ -1,14 +1,19 @@
-"""This module contains the basic Intra Slice Scheduler class.
-All possible intra slice schedulers should inherit from this."""
+"""
+    This module contains the basic Intra Slice Scheduler class.
+    All possible intra slice schedulers should inherit from this.
+"""
 import os
 import sys
 import simpy
 from collections import deque
 import math
 import random
+from utilities import Format
 
 class IntraSliceScheduler():
-    """ Basic intra slice scheduler. It implements Round Robin algorithm."""
+    """
+        Basic intra slice scheduler. It implements Round Robin algorithm.
+    """
     def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
         self.band = ba
         self.PRBs = n
@@ -139,10 +144,11 @@ class IntraSliceScheduler():
             self.sinrModTable.append(100.00) # MCS 27
 
     def queuesOut(self,env): # ---------- PEM -------------
-        """This method manages the scheduler TB queue. This is a PEM method.
-
-        At each TTI it first updates the scheduler TB queue and then takes each TB  and sends it through the air interface.
-        TB are queued to retransmit with a BLER probability. """
+        """
+            This method manages the scheduler TB queue. This is a PEM method.
+            At each TTI it first updates the scheduler TB queue and then takes each TB and sends it 
+            through the air interface. TB are queued to retransmit with a BLER probability.
+        """
         while True:
             if self.dbMd:
                 self.printQstate(env)
@@ -186,9 +192,10 @@ class IntraSliceScheduler():
         return findP
 
     def queueUpdate(self):
-        """This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling bytes.
-
-        It makes Resource allocation and insert generated TBs into Scheduler queue in a TTI."""
+        """
+            This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling bytes.
+            It makes Resource allocation and insert generated TBs into Scheduler queue in a TTI.
+        """
         packts = 1
         self.ueLst = list(self.ues.keys())
         self.resAlloc(self.nrbUEmax)
@@ -212,6 +219,7 @@ class IntraSliceScheduler():
                     if self.dbMd:
                         self.printQtb() # Print TB queue in debbug mode
             self.updIndUE()
+            
             packts = self.updSumPcks()
 
     def rrcUncstSigIn(self,u):
@@ -241,7 +249,9 @@ class IntraSliceScheduler():
         return packets
 
     def dataPtoTB(self,u):
-        """This method takes UE data bytes, builds TB and puts them in the scheduler TB queue."""
+        """
+            This method takes UE data bytes, builds TB and puts them in the scheduler TB queue.
+        """
         n = self.ues[u].prbs
         [tbSbits,mod,bits,mcs__] = self.setMod(u,n)
         if self.schType[0:2]=='PF':
@@ -280,7 +290,9 @@ class IntraSliceScheduler():
         return r
 
     def resAlloc(self,Nrb):
-        """This method allocates cell PRBs to the different connected UEs."""
+        """
+            This method allocates cell PRBs to the different connected UEs.
+        """
         if len(list(self.ues.keys()))>0:
             for ue in list(self.ues.keys()): # TS 38.214 table 5.1.2.2.1-1  RBG size for configuration 2
                 if self.ues[ue].BWPs<37:
@@ -294,7 +306,9 @@ class IntraSliceScheduler():
         self.printResAlloc()
 
     def setMod(self,u,nprb): # AMC
-        """This method sets the MCS and TBS for each TB."""
+        """
+            This method sets the MCS and TBS for each TB.
+        """
         sinr = self.ues[u].radioLinks.linkQuality
         mcs_ = self.findMCS(sinr)
         if self.robustMCS and mcs_>2:
@@ -408,6 +422,9 @@ class IntraSliceScheduler():
                 resAllocMsg = resAllocMsg + ue +': '+ str(self.ues[ue].prbs)+' PRBs'+'<br>'
             self.printDebData(resAllocMsg)
             self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
+    
+    def plot_assignation(self):
+        pass
 
 #--------------------------------------------------------------
 
@@ -804,6 +821,28 @@ class TBqueue: # TB queue!!!
 
     def updateSize(self,newSize):
         self.numRB = newSize
+
+
+class TbQueueDeepMimo():
+    """
+        This class is used to model scheduler TB queue for DeepMimo scenarios.
+        In this case the queue shouldn't have a maximum size.
+    """
+    def __init__(self):
+        self.res = deque([])
+
+    def insertTB(self,tb):
+        self.res.append(tb)
+        return True
+
+    def removeTB(self):
+        if len(self.res)>0:
+            return self.res.popleft()
+    
+    def getFreeSpace(self):
+        return 0
+
+
 
 class TransportBlock:
     """This class is used to describe TB properties and behabiour."""

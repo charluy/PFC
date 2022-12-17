@@ -1,22 +1,484 @@
-"""This module contains different implemented intra slice schedulers.
-New schedulers should be implemented here following the current structure."""
+"""
+    This module contains different implemented intra slice schedulers.
+    New schedulers should be implemented here following the current structure.
+"""
 
 import math
-from IntraSliceSch import IntraSliceScheduler, Format
+from operator import index
+from IntraSliceSch import IntraSliceScheduler, Format, TbQueueDeepMimo
 from collections import deque
+from utilities import Format
+from operator import attrgetter
+import numpy as np
+from itertools import combinations
+
+
+SCS_TO_NUM = {
+    '15khz' : 1,
+    '30khz' : 2,
+    '60khz' : 4,
+    '120khz': 8
+}
+
+BER = 0.01
+N_RE = 14
+THRESHOLD_ANGLE = 10
+DELTA = 0.7
+
+MIN_PRB_GROUP_TO_ASSIGN = 8
+
+
+class IntraSliceSchedulerDeepMimo(IntraSliceScheduler):
+    def __init__(self, ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch, slice):
+
+        super(IntraSliceSchedulerDeepMimo, self).__init__(
+            ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch
+        )
+        self.slice = slice
+        self.queue = TbQueueDeepMimo()
+        self.assignation_start_index = 0
+
+    def resAlloc(self):
+        """
+            This method allocates cell specifics PRBs to the different connected UEs.
+        """
+
+        # In order to allocate resources to UEs must do:
+        #   - assigned_prbs: Set base prb list assigned to the UE.
+        #   - PRBs: Set cant of prb assigned to the scheduler in the given numerology.
+        #   - assigned_layers: Set cant of layers given to the UE.
+
+        base_prbs_to_assign = self.slice.assigned_base_prbs
+
+        cant_prb_in_a_group = self.ttiByms
+
+        cant_base_prb = len(base_prbs_to_assign)
+
+        cant_prbs_groups = cant_base_prb//MIN_PRB_GROUP_TO_ASSIGN
+
+        # ue_with_bearer_packets = [self.ues[ue_key] for ue_key in list(self.ues.keys()) if self.ues[ue_key].has_packet_in_bearer()]
+
+        ue_list = [self.ues[ue_key] for ue_key in list(self.ues.keys())]
+
+        cant_ues = len(ue_list)
+
+        # Clean previous resource allocation.
+        for ue in ue_list:
+            ue.assigned_base_prbs = []
+            ue.assigned_layers = 0
+            ue.prbs = 0  # len(ue.assigned_base_prbs)/cant_prb_in_a_group
+
+        if cant_ues < 1:
+            return
+
+        cant_prb_groups_assigned = [0 for ue_index in range(0, cant_ues)]
+        assigned_prbs = []  # Is a list of lists.
+
+        while cant_prbs_groups > 0:
+            cant_prb_groups_assigned[self.assignation_start_index] += 1
+            self.assignation_start_index = (self.assignation_start_index + 1) % cant_ues
+            cant_prbs_groups -= 1
+
+        first_prb = 0
+        for ue_index, ue in enumerate(ue_list):
+
+            cant_prbs_to_ue = cant_prb_groups_assigned[ue_index] * MIN_PRB_GROUP_TO_ASSIGN
+            last_prb = first_prb + cant_prbs_to_ue
+            prbs_to_ue = self.slice.assigned_base_prbs[first_prb:last_prb]
+
+            ue.assigned_base_prbs = prbs_to_ue
+            ue.assigned_layers = 1
+            ue.prbs = len(ue.assigned_base_prbs)/cant_prb_in_a_group
+
+            first_prb = last_prb
+
+        # Print Resource Allocation
+        self.printResAlloc()
+
+    # def resAlloc(self):
+    #     """
+    #         This method allocates cell specifics PRBs to the different connected UEs.
+    #     """
+
+    #     # In order to allocate resources to UEs must do:
+    #     #   - assigned_prbs: Set base prb list assigned to the UE.
+    #     #   - PRBs: Cant of prb assigned to the scheduler in the given numerology.
+    #     #   - assigned_layers: Cant of layers given to the UE.
+
+    #     base_prbs_to_assign = self.slice.assigned_base_prbs
+    #     cant_prb_in_a_group = self.ttiByms
+    #     ue_with_bearer_packets = [self.ues[ue_key] for ue_key in list(self.ues.keys()) if self.ues[ue_key].has_packet_in_bearer()]
+
+    #     # This implementation have no sense but is intenden as an example.
+    #     for ue in ue_with_bearer_packets:
+    #         ue.assigned_base_prbs = base_prbs_to_assign
+    #         ue.assigned_layers = 2
+    #         ue.prbs = len(ue.assigned_base_prbs)/cant_prb_in_a_group
+
+    #     # Print Resource Allocation
+    #     self.printResAlloc()
+
+    def queueUpdate(self):
+        """
+            This method overrides the one in the parent class.
+            This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling
+            bytes without verify that the resource blocks used match with the assigned ones.
+            It makes Resource allocation and insert generated TBs into Scheduler queue in a TTI.
+        """
+
+        self.ueLst = list(self.ues.keys())
+        self.resAlloc()
+
+        # RB limit no va mas, ahora se confia en la asignacion de resAlloc.
+
+        for ue_key in self.ueLst:
+
+            ue = self.ues[ue_key]
+            ue_has_packets_in_bearer = ue.has_packet_in_bearer()
+            ue_has_prb_assigned = ue.prbs > 0
+            ue_has_tb_to_retransmit = len(ue.pendingTB) > 0
+
+            self.printDebDataDM('---------------- '+ue_key+' ------------------<br>') # print more info in debbug mode
+
+            if ue_has_prb_assigned and ue_has_packets_in_bearer:
+
+                if not ue_has_tb_to_retransmit:
+                    self.dataPtoTB(ue_key)
+                else:
+                    self.retransmitTB(ue_key)
+
+                if self.dbMd:
+                    self.printQtb() # Print TB queue in debbug mode
+
+    def setMod(self,u,nprb):
+        """
+            This method sets the MCS and TBS for each TB over the specifics PRBs frequencies.
+        """
+        snr, _ = self.ues[u].radioLinks.get_radio_link_quality_over_assigned_prbs()
+        mcs_ = self.findMCS(snr)
+        if self.robustMCS and mcs_>2:
+            mcs_ = mcs_-2
+        mo = self.modTable[mcs_]['mod']
+        mcsi = self.modTable[mcs_]['mcsi']
+        Qm = self.modTable[mcs_]['bitsPerSymb']
+        R = self.modTable[mcs_]['codeRate']
+        # Find TBsize
+        if self.band == 'n257' or self.band == 'n258' or self.band == 'n260' or self.band == 'n261':
+            fr = 'FR2'
+        else:
+            fr = 'FR1'
+        if nprb>0:
+            tbls = self.setTBS(R,Qm,self.direction,u,fr,nprb) # bits
+        else:
+            tbls = 0 # PF Scheduler
+        return [tbls, mo, Qm, mcsi]
+
+    def setTBS(self, r, qm, uldl, ue, fr, nprb): # TS 38.214 procedure
+        OHtable = {'DL':{'FR1':0.14,'FR2':0.18},'UL':{'FR1':0.08,'FR2':0.10}}
+        OH = OHtable[uldl][fr]
+        Nre__ = min(156,math.floor(12*self.TDDsmb*(1-OH)))
+
+        tbs = Nre__*nprb*r*qm*self.ues[ue].assigned_layers
+
+        return tbs
+
+    def get_subcarrier_spacing(self):
+        return self.slice.scs.lower()
+
+    def get_assigned_PRBs(self):
+        return self.slice.assigned_base_prbs
+
+    def get_ue_list(self):
+        return [self.ues[ue_key] for ue_key in list(self.ues.keys()) if self.ues[ue_key].has_packet_in_bearer()]
+
+    def clean_ues_assignation(self):
+        for ue_key in list(self.ues.keys()):
+            self.ues[ue_key].assigned_base_prbs = []
+            self.ues[ue_key].assigned_layers = 1
+            self.ues[ue_key].prbs = 0
+
+
+class NUM_Scheduler(IntraSliceSchedulerDeepMimo): # NUM Sched ---------
+    """This class implements Network Utility Maximization intra slice scheduling algorithm."""
+    def __init__(self, ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch, slice):
+        super(NUM_Scheduler, self).__init__(
+            ba, n, debMd, sLod, ttiByms, mmd_, ly_, dir, Smb, robustMCS, slcLbl, sch, slice
+        )
+        self.ri = {}
+        self.ri_mean = {}
+
+        self.plot_current_tti = 0
+        self.plot_time_list = []
+        self.plot_prbs = []
+        self.ue_assignation_list = dict()
+
+    def resAlloc(self):
+        """This method implements Network Utility Maximization resource allocation between the different connected UEs.
+        This method overwrites the resAlloc method from IntraSliceScheduler class.
+
+        Network Utility Maximization scheduler allocates all PRBs in the slice to the UE with the biggest metric.
+        Metric for each group of UE is calculated as argmax of a special function."""
+
+        self.clean_ues_assignation()
+        schd = self.schType[0:3]
+        scs = self.get_subcarrier_spacing()
+        PRBs_base = self.get_assigned_PRBs()
+        PRBs = self.convert_PRBs_base_to_PRBs(PRBs_base, scs)
+
+        if self.get_ue_list():
+
+            PRB_UE_list = list()
+
+            UE_sched_groups = self.set_sched_groups()
+            if schd=='NUM' and len(list(self.ues.keys()))>0:
+                for PRB in PRBs:
+                    sched_groups_numfactors = self.get_sched_groups_num_factors(UE_sched_groups, PRB)
+                    maxInd = np.argmax(sched_groups_numfactors)
+                    ue_name_csv = ''
+                    for ue in UE_sched_groups[maxInd]:
+                        ue.add_resources(
+                            base_prbs_list=PRB, layers = self.get_layers(UE_sched_groups[maxInd], PRB), cant_prbs = 1
+                        )
+                        ue_name_csv += f"{ue.id},"
+
+                    PRB_UE_list.append(ue_name_csv)
+
+                for ue in self.get_ue_list():
+                    ue_key = ue.id
+                    ri_ue = 0
+                    ue_base_prbs = ue.assigned_base_prbs
+                    ue_prbs = self.convert_PRBs_base_to_PRBs(ue_base_prbs, scs)
+                    for PRB in ue_prbs:
+                        ri_ue = ri_ue + self.compute_UE_throughput(ue, PRB)
+
+                    self.ri[ue_key] = ri_ue
+                    self.ri_mean[ue_key] = self.get_ri_mean_factor(ue_key)
+
+
+                self.store_assigantion_data(PRBs, PRB_UE_list)
+            
+        else:
+            self.store_assigantion_data(PRBs, ['IDLE' for _ in PRBs])
+
+        # Print Resource Allocation
+        #self.printResAlloc(UE_sched_groups, sched_groups_numfactors)
+
+    def store_assigantion_data(self, prb_list, ue_by_prb_list):
+
+        if not ue_by_prb_list:
+            ue_by_prb_list = ['IDLE' for _ in prb_list]
+
+        time = self.plot_current_tti
+
+        # If the PRBs list change must plot previous results
+        if self.plot_prbs != prb_list:
+            if self.plot_prbs:
+                self.plot_assignation()
+            self.plot_prbs = prb_list
+            self.ue_assignation_list = dict()
+        else:
+            self.plot_current_tti += 1
+
+        self.plot_time_list.append(time)
+
+        for index, prb in enumerate(prb_list):
+            key = str(prb)
+            if self.ue_assignation_list.get(key):
+                self.ue_assignation_list[key].append(ue_by_prb_list[index])
+            else:
+                self.ue_assignation_list[key] = [ue_by_prb_list[index]]
+
+    def plot_assignation(self):
+
+        import numpy as np
+        from matplotlib import pyplot as plt
+        import matplotlib.patches as mpatches
+
+        if self.plot_current_tti == 0:
+            return
+
+        # print("\n\n")
+        # print(f"CURRENT TTI: {self.plot_current_tti}")
+        # print(f"LEN PLOT TIME LIST: {len(self.plot_time_list)}")
+        # print(f"ASSINATION LIST:")
+        # for key in self.ue_assignation_list.keys():
+        #     print(f"\tPRB {key} LEN: {len(self.ue_assignation_list[key])}")
+
+        ue_comb_list = []
+        for key in self.ue_assignation_list.keys():
+            for assignation in self.ue_assignation_list[key]:
+                assig = str(assignation).strip(',')
+                if assig not in ue_comb_list:
+                    ue_comb_list.append(assig)
+
+        cant_prbs = len(self.ue_assignation_list.keys())
+        cant_slots = len(self.plot_time_list)
+        cant_slots = int(cant_slots*0.83)  # Comment this line to show full time resurce grid
+        assignation_grid = np.zeros(shape=(cant_prbs, cant_slots))
+
+        for index_prb, prb in enumerate(self.ue_assignation_list.keys()):
+            for index_slot, ues_in_slot in enumerate(self.ue_assignation_list[prb]):
+                if index_slot < cant_slots:
+                    ue_comb_str = str(ues_in_slot).strip(',')
+                    assignation_grid[index_prb, index_slot] = ue_comb_list.index(ue_comb_str)
+
+        # print(f"COMB UE ASSIGNATION: {ue_comb_list}")
+        # print("\n\n")
+
+        # Initialize plot
+        fig, ax = plt.subplots(1,1)
+        fig.set_size_inches(15,2+int(cant_prbs/2))
+
+        # Print assignation as image
+        im = ax.imshow(assignation_grid, interpolation='nearest', aspect='auto')
+
+        # Prepare axis labels and ticks
+        y_label_ticks = [index for index, prb in enumerate(self.ue_assignation_list.keys())]
+        y_labels_list = [f"PRB {prb}".replace(' [', '_[').replace(' ','') for prb in self.ue_assignation_list.keys()]
+        ax.set_yticks(y_label_ticks)
+        ax.set_yticklabels(y_labels_list)
+        ax.set_xlabel('TTI number')
+
+        # Colors
+        ue_comb_value = [ind for ind, _ in enumerate(ue_comb_list)]
+        colors = [ im.cmap(im.norm(value)) for value in ue_comb_value]
+        patches = [mpatches.Patch(color=colors[i], label=ue_comb_list[i] ) for i in ue_comb_value]
+        # ax.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0. )
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.9, box.height])
+        ax.legend(handles=patches, loc='center left', bbox_to_anchor=(1, 0.5))
+
+        # Separate PRBs with horizontal lines
+        for index in y_label_ticks[:-1]:
+            ax.axhline(y=index+0.5, color='r', linestyle='--')
+
+        # Save result
+        plt.savefig(f'Figures/{self.sliceLabel}_{self.direction}_tti_{self.plot_current_tti}_resource_grid.png')
+
+    def convert_PRBs_base_to_PRBs(self, PRBs_base, scs):
+        """This method returns a list containing subslists of PRBs_base taking into account the subcarrier spacing of the slice"""
+        PRB_relative_size = SCS_TO_NUM[scs]
+        PRBs = [PRBs_base[i:i+PRB_relative_size] for i in range(0, len(PRBs_base), PRB_relative_size)]
+        return PRBs
+
+    def set_sched_groups_easy_division(self):
+        """This method divides the UEs in sched groups of 2 UEs"""
+        max_index_groups = 0
+        for idue, ue in enumerate(self.ues.keys()):
+            ue.sched_groups[0].group_number = idue//2
+
+    def set_sched_groups(self):
+        """This method divides the UEs in sched_groups taking into account the departure angle of the principal ray"""
+        sched_groups = []
+        for group in self.generate_all_possible_groups():
+            if len(group) == 1 or self.valid_group(group) == True:
+                sched_groups.append(group)
+
+        return sched_groups
+
+    def generate_all_possible_groups(self):
+        """This method returns all the possible groups that can be formed within the UEs of a slice"""
+        comb = []
+        for i in range(1, len(self.get_ue_list())+1):
+            comb += [list(j) for j in combinations(self.get_ue_list(), i)]
+        return comb
+
+    def valid_group(self, group):
+        is_a_valid_group = False
+        for i in range(len(group)):
+            for j in range(i+1, len(group)):
+                is_a_valid_group = abs(group[i].radioLinks.degree[0] - group[j].radioLinks.degree[0]) > THRESHOLD_ANGLE
+
+                if is_a_valid_group == False:
+                    break
+
+            if is_a_valid_group == False:
+                break
+
+        return is_a_valid_group
+
+
+    def get_sched_groups_num_factors(self, sched_groups, PRB):
+        """This method sets the NUM metric for each UE_sched_group for a given PRB"""
+        num_factors = []
+        for sched_group in sched_groups:
+            NUM_group_factor = self.compute_NUM_factor(sched_group, sched_groups, PRB)
+            num_factors.append(NUM_group_factor)
+
+        return num_factors
+
+    def compute_NUM_factor(self, sched_group, sched_groups, PRB):
+        """This method computes the NUM_factor for a given sched_group"""
+        numfactor = 0
+        for ue in sched_group:
+            numfactor += self.compute_UE_throughput(ue, PRB)*(1/self.get_ri_mean_factor(ue.id))
+
+        return numfactor
+
+    def get_ri_mean_factor(self, ue_key):
+        ri_mean_factor = DELTA*self.get_ri_mean(ue_key) + (1-DELTA)*self.get_ri(ue_key)
+        return ri_mean_factor
+
+    def get_ri_mean(self, ue_key):
+        self.ri_mean.setdefault(ue_key, 0.01)
+        return self.ri_mean[ue_key]
+
+    def get_ri(self, ue_key):
+        self.ri.setdefault(ue_key, 10*np.random.rand())
+        return self.ri[ue_key]
+
+    def compute_UE_sched_groups_throughput(self, ue, sched_groups, PRB):
+        """This method returns the sum of the throughput in UEs for a given PRB, also named ri"""
+        UE_sched_groups_throughput = 0
+        for sched_group in sched_groups:
+            if ue in sched_group:
+                UE_sched_groups_throughput = UE_sched_groups_throughput + self.compute_UE_throughput(ue, PRB, BER)
+        return UE_sched_groups_throughput
+
+    def compute_UE_throughput(self, ue, PRB):
+        """This method returns the UE throughput for a given PRB, also named ci"""
+        B = -1.5/math.log(5*BER)
+        layers = min(ue.radioLinks.rank[PRB])
+        snr = np.mean(ue.radioLinks.snr[PRB])
+        throughput= layers*N_RE*math.log(1+B*snr, 2)
+        return float(throughput)
+
+    def get_layers(self, sched_group, PRB):
+        """This method returns the amount of layers for a sched group in a PRB"""
+        layers = min(sched_group[0].radioLinks.rank[PRB])
+        for ue in sched_group:
+            if min(ue.radioLinks.rank[PRB]) < layers:
+                layers = min(ue.radioLinks.rank[PRB])
+
+        return layers
+
+    def printResAlloc(self, sched_groups, sched_groups_numfactors):
+        if self.dbMd:
+            self.printDebData('+++++++++++ Res Alloc +++++++++++++'+'<br>')
+            self.printDebData('PRBs: '+str(self.nrbUEmax)+'<br>')
+            resAllocMsg = ''
+            for sched_group in sched_groups:
+                for ue in sched_group:
+                    resAllocMsg = resAllocMsg + ue + sched_group + ' ' +str(self.ues[ue].prbs) + '<br>'
+            self.printDebData(resAllocMsg)
+            self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
 
 class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
-    """This class implements Proportional Fair intra slice scheduling algorithm."""
+    """
+        This class implements Proportional Fair intra slice scheduling algorithm.
+    """
     def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
         IntraSliceScheduler.__init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch)
         self.promLen = 30
         """Past Throughput average length considered in PF metric"""
-    def resAlloc(self,band):
-        """This method implements Proportional Fair resource allocation between the different connected UEs.
-        This method overwrites the resAlloc method from IntraSliceScheduler class.
 
-        Proportional Fair scheduler allocates all PRBs in the slice to the UE with the biggest metric.
-        Metric for each UE is calculated as PossibleUEtbs/AveragePastTbs."""
+    def resAlloc(self,band):
+        """
+            This method implements Proportional Fair resource allocation between the different connected UEs.
+            This method overwrites the resAlloc method from IntraSliceScheduler class.
+            Proportional Fair scheduler allocates all PRBs in the slice to the UE with the biggest metric.
+            Metric for each UE is calculated as PossibleUEtbs/AveragePastTbs.
+        """
         schd = self.schType[0:2]
         if schd=='PF' and len(list(self.ues.keys()))>0:
             exp_num = float(self.schType[2])
@@ -36,7 +498,9 @@ class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
         self.printResAlloc()
 
     def setUEfactor(self, exp_n, exp_d):
-        """This method sets the PF metric for each UE"""
+        """
+            This method sets the PF metric for each UE.
+        """
         for ue in list(self.ues.keys()):
             sumTBS = 0
             for t in self.ues[ue].pastTbsz:
@@ -48,7 +512,9 @@ class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
             self.ues[ue].num = tbs
 
     def findMaxFactor(self):
-        """This method finds and returns the UE with the highest metric"""
+        """
+            This method finds and returns the UE with the highest metric
+        """
         factorMax = 0
         factorMaxInd = ''
         for ue in list(self.ues.keys()):
@@ -77,25 +543,28 @@ class PF_Scheduler(IntraSliceScheduler): # PF Sched ---------
             self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
 
 class TDD_Scheduler(IntraSliceScheduler): # TDD Sched ---------
-    """This class implements TDD intra slice scheduling."""
+    """
+        This class implements TDD intra slice scheduling.
+    """
     def __init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch):
         IntraSliceScheduler.__init__(self,ba,n,debMd,sLod,ttiByms,mmd_,ly_,dir,Smb,robustMCS,slcLbl,sch)
         self.symMax = Smb
         self.queue = TBqueueTDD(self.symMax)
-        """TDD scheduler TB queue.
-
-        IntraSliceScheduler class attribute queue is overwriten here by a new type of queue
-        which handles symbols. This queue will contain as much TB as a slot can contain. If resource allocation is made
-        in terms of slots, it will contain 1 element, else, it will contain as much mini-slots as can be supported in 1 slot."""
+        """
+            TDD scheduler TB queue. IntraSliceScheduler class attribute queue is overwriten here by a new type of queue
+            which handles symbols. This queue will contain as much TB as a slot can contain. If resource allocation is made
+            in terms of slots, it will contain 1 element, else, it will contain as much mini-slots as can be supported in 1 slot.
+        """
 
     def resAlloc(self,band):
-        """This method implements resource allocation between the different connected UEs in a TDD slice.
-
-        It overwrites the resAlloc method from IntraSliceScheduler class.
-        In this Py5cheSim version TDD scheduler allocates all PRBs in the slice to a UE during 1 slot.
-        Future Py5cheSim versions could support mini-slot allocation by changing the UE symbol allocation in this method.
-        Note that in that case, althoug there is no need to update the queueUpdate method,
-        TBS calculation must be adjusted to avoid losing capacity when trunking the Nre__ value."""
+        """
+            This method implements resource allocation between the different connected UEs in a TDD slice.
+            It overwrites the resAlloc method from IntraSliceScheduler class.
+            In this Py5cheSim version TDD scheduler allocates all PRBs in the slice to a UE during 1 slot.
+            Future Py5cheSim versions could support mini-slot allocation by changing the UE symbol allocation in this method.
+            Note that in that case, althoug there is no need to update the queueUpdate method,
+            TBS calculation must be adjusted to avoid losing capacity when trunking the Nre__ value.
+        """
 
         if len(list(self.ues.keys()))>0:
             for ue in list(self.ues.keys()):
@@ -105,11 +574,12 @@ class TDD_Scheduler(IntraSliceScheduler): # TDD Sched ---------
         self.printResAlloc()
 
     def queueUpdate(self):
-        """This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling bytes.
-
-        It overwrites queueUpdate method from IntraSliceScheduler class, making Resource allocation in terms of slot Symbols
-        and insert generated TBs into Scheduler queue in a TTI. Althoug in this version Resource allocation is made by slot,
-        it is prepared to support mini-slot resource allocation by handling a scheduler TB queue in terms of symbols."""
+        """
+            This method fills scheduler TB queue at each TTI with TBs built with UE data/signalling bytes.
+            It overwrites queueUpdate method from IntraSliceScheduler class, making Resource allocation in terms of slot Symbols
+            and insert generated TBs into Scheduler queue in a TTI. Althoug in this version Resource allocation is made by slot,
+            it is prepared to support mini-slot resource allocation by handling a scheduler TB queue in terms of symbols.
+        """
         packts = 1
         self.ueLst = list(self.ues.keys())
         self.resAlloc(self.nrbUEmax)
@@ -166,10 +636,11 @@ class TDD_Scheduler(IntraSliceScheduler): # TDD Sched ---------
         return r
 
     def dataPtoTB(self,u):
-        """This method takes UE data bytes, builds TB and puts them in the scheduler TB queue.
-
-        It overwrites dataPtoTB method from IntraSliceScheduler class. In this case it returns
-        the amount of allocated symbols to the UE."""
+        """
+            This method takes UE data bytes, builds TB and puts them in the scheduler TB queue.
+            It overwrites dataPtoTB method from IntraSliceScheduler class. In this case it returns
+            the amount of allocated symbols to the UE.
+        """
         n = self.ues[u].prbs
         [tbSbits,mod,bits,mcs__] = self.setMod(u,n)
         if self.schType[0:2]=='PF':
@@ -218,7 +689,9 @@ class TDD_Scheduler(IntraSliceScheduler): # TDD Sched ---------
             self.printDebData('+++++++++++++++++++++++++++++++++++'+'<br>')
 
 class TBqueueTDD: # TB queue!!!
-    """This class is used to model scheduler TB queue in TDD scheduler."""
+    """
+        This class is used to model scheduler TB queue in TDD scheduler.
+    """
     def __init__(self,symb):
         self.res = deque([])
         self.numRes = symb

@@ -1,20 +1,28 @@
-"""This module contains different implemented inter slice schedulers.
-New schedulers should be implemented here following the current structure."""
+"""
+    This module contains different implemented inter slice schedulers.
+    New schedulers should be implemented here following the current structure.
+"""
 import math
 from InterSliceSch import InterSliceScheduler
 from Slice import *
 import random
 
+MIN_PRB_GROUP_TO_ASSIGN = 8
+
+
 class RRplus_Scheduler(InterSliceScheduler):
-    """This class implements Round Robin Plus inter slice scheduling algorithm."""
+    """
+        This class implements Round Robin Plus inter slice scheduling algorithm.
+    """
     def __init__(self,ba,fr,dm,tdd,gr):
         InterSliceScheduler.__init__(self,ba,fr,dm,tdd,gr)
 
     def resAlloc(self,env): #PEM ------------------------------------------------
-        """This method implements Round Robin Plus PRB allocation between the different configured slices.
-        This PEM method overwrites the resAlloc method from InterSliceScheduler class.
-
-        Round Robin Plus scheduler allocates the same amount of resources to each slice with packets in buffer. """
+        """
+            This method implements Round Robin Plus PRB allocation between the different configured slices.
+            This PEM method overwrites the resAlloc method from InterSliceScheduler class.
+            Round Robin Plus scheduler allocates the same amount of resources to each slice with packets in buffer.
+        """
         while True:
             self.dbFile.write('<h3> SUBFRAME NUMBER: '+str(env.now)+'</h3>')
             if len(list(self.slices.keys()))>0:
@@ -47,7 +55,9 @@ class RRplus_Scheduler(InterSliceScheduler):
 
 
 class PF_Scheduler(InterSliceScheduler):
-    """This class implements Proportional Fair inter slice scheduling algorithm."""
+    """
+        This class implements Proportional Fair inter slice scheduling algorithm.
+    """
     def __init__(self,ba,fr,dm,tdd,gr,sch):
         InterSliceScheduler.__init__(self,ba,fr,dm,tdd,gr)
         self.sch = sch
@@ -56,11 +66,12 @@ class PF_Scheduler(InterSliceScheduler):
         """rcvdBytes list length in Slice instance. No more that rcvdBytesLen values are stored."""
 
     def resAlloc(self,env): #PEM ------------------------------------------------
-        """This method implements Proportional Fair resource allocation between the different configured slices.
-        This PEM method overwrites the resAlloc method from InterSliceScheduler class.
-
-        Proportional Fair scheduler allocates all PRBs in the cell to the slice with the biggest metric.
-        Metric for each slice is calculated as PossibleAverageUEtbs/ReceivedBytes."""
+        """
+            This method implements Proportional Fair resource allocation between the different configured slices.
+            This PEM method overwrites the resAlloc method from InterSliceScheduler class.
+            Proportional Fair scheduler allocates all PRBs in the cell to the slice with the biggest metric.
+            Metric for each slice is calculated as PossibleAverageUEtbs/ReceivedBytes.
+        """
         while True:
             self.dbFile.write('<h3> SUBFRAME NUMBER: '+str(env.now)+'</h3>')
             if len(list(self.slices.keys()))>0:
@@ -129,3 +140,77 @@ class PF_Scheduler(InterSliceScheduler):
         super().printSliceConfig(slice)
         for s in list(self.slices.keys()):
             self.dbFile.write('Slice: '+str(s)+' -> PF Metric: '+str(self.slices[s].metric)+'<br>')
+
+
+class InterSliceSchedulerDeepMimo(InterSliceScheduler):
+    """
+        Basic inter slice scheduler for DeepMIMO based simulations.
+        It implements Round Robin algorithm.
+    """
+    def __init__(self, ba, fr, dm, tdd, gr, cant_prbs_base):
+
+        super(InterSliceSchedulerDeepMimo, self).__init__(ba, fr, dm, tdd, gr)
+
+        if cant_prbs_base < MIN_PRB_GROUP_TO_ASSIGN:
+            raise Exception(
+                f"La minima cantidad de prbs que puede ser asignada es {MIN_PRB_GROUP_TO_ASSIGN}"
+            )
+        
+        self.PRBs = (cant_prbs_base//MIN_PRB_GROUP_TO_ASSIGN) * MIN_PRB_GROUP_TO_ASSIGN
+        self.list_base_prb = [prb_index for prb_index in range(0,cant_prbs_base)]
+        self.assignation_start_index = 0
+
+    def resAlloc(self,env): #PEM ------------------------------------------------
+        """
+            This method implements Round Robin PRB allocation between the different 
+            configured slices. This is a PEM method
+        """
+        while True:
+
+            self.dbFile.write('<h3> SUBFRAME NUMBER: '+str(env.now)+'</h3>')
+
+            cant_slices = len(list(self.slices.keys()))
+            slices = [self.slices[slice_label] for slice_label in list(self.slices.keys())]
+            assigned_prbs = self.get_equitative_prb_division(cant_slices)
+            
+            for slice_index, slice in enumerate(slices):
+                slice.updateConfig(assigned_prbs[slice_index])
+
+            self.dbFile.write('<hr>')
+
+            yield env.timeout(self.granularity)
+
+    def get_equitative_prb_division(self, cant_slices):
+        """
+            Auxiliary method for equitative prbs division.
+        """
+
+        if not isinstance(cant_slices, int) or not cant_slices > 0:
+            raise Exception(f"{cant_slices} is not a valid argument, must be an int grater or equal to 1")
+
+        cant_prbs_groups = self.PRBs//MIN_PRB_GROUP_TO_ASSIGN
+        cant_prb_groups_assigned = [0 for slice in range(0, cant_slices)]
+        assigned_prbs = []  # Is a list of lists.
+
+        while cant_prbs_groups > 0:
+            cant_prb_groups_assigned[self.assignation_start_index] += 1
+            self.assignation_start_index = (self.assignation_start_index + 1) % cant_slices
+            cant_prbs_groups -= 1
+        
+        first_prb = 0
+        for slice in range(0, cant_slices):
+            cant_prbs_to_slice = cant_prb_groups_assigned[slice] * MIN_PRB_GROUP_TO_ASSIGN
+            last_prb = first_prb + cant_prbs_to_slice
+            prbs_to_slice = [prb for prb in range(first_prb, last_prb)]
+            assigned_prbs.append(prbs_to_slice)
+            first_prb = last_prb
+        
+        return assigned_prbs
+    
+    def createSlice(self,dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,sch):
+        """
+            This method creates a slice and stores it in the slices dictionary.
+        """
+        self.slices[lbl] = SliceDeepMimo(dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,self.tdd,sch)
+
+

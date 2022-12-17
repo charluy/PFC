@@ -1,12 +1,16 @@
-"""This module contains the basic Inter Slice Scheduler class.
-All possible inter slice schedulers should inherit from this."""
+"""
+    This module contains the basic Inter Slice Scheduler class.
+    All possible inter slice schedulers should inherit from this.
+"""
 import math
 import os
 from Slice import *
 import random
 
 class InterSliceScheduler():
-    """ Basic inter slice scheduler. It implements Round Robin algorithm."""
+    """
+        Basic inter slice scheduler. It implements Round Robin algorithm.
+    """
     def __init__(self,ba,fr,dm,tdd,gr):
         self.bw = ba
         self.FR = fr
@@ -31,7 +35,10 @@ class InterSliceScheduler():
         self.granularity = gr
 
     def resAlloc(self,env): #PEM ------------------------------------------------
-        """This method implements Round Robin PRB allocation between the different configured slices. This is a PEM method"""
+        """
+            This method implements Round Robin PRB allocation between the different 
+            configured slices. This is a PEM method
+        """
         while True:
             self.dbFile.write('<h3> SUBFRAME NUMBER: '+str(env.now)+'</h3>')
             if len(list(self.slices.keys()))>0:
@@ -50,9 +57,10 @@ class InterSliceScheduler():
             yield env.timeout(self.granularity)
 
     def createSlice(self,dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,sch):
-        """This method creates a slice and stores it in the slices dictionary."""
+        """
+            This method creates a slice and stores it in the slices dictionary.
+        """
         self.slices[lbl] = Slice(dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,self.tdd,sch)
-
 
     def printSliceConfig(self,slice):
         """This method stores inter slice scheduling debugging information on the log file."""

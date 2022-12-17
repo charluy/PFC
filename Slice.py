@@ -5,7 +5,10 @@ from Scheds_Intra import *
 from collections import deque
 
 class Slice:
-    """This class has Slice relative parameters and is used to implement the mapping between service requirements and slice configuration."""
+    """
+        This class has Slice relative parameters and is used to implement the mapping 
+        between service requirements and slice configuration.
+    """
     def __init__(self,dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,tdd,sch):
         self.reqDelay = dly
         self.reqThroughputDL = thDL
@@ -35,7 +38,10 @@ class Slice:
             self.schedulerUL = self.createSliceSched('UL',14-self.tddSymb)
 
     def createSliceSched(self,dir,tddSymb):
-        """This method initializes and returns slice UL or DL scheduler. Scheduler algorithm is selected according to the Slice attribute schType."""
+        """
+            This method initializes and returns slice UL or DL scheduler. Scheduler algorithm is selected 
+            according to the Slice attribute schType.
+        """
         if self.tdd:
             if self.schType[0:2] == 'PF':
                 scheduler = PF_Scheduler(self.band,self.PRBs,self.dm,self.signLoad,self.ttiBms,self.mimoMd,self.layers,dir,tddSymb,self.robustMCS,self.label,self.schType)
@@ -110,3 +116,55 @@ class Slice:
             self.schedulerDL.queue.updateSize(self.PRBs)
             if self.label != 'LTE':
                 self.schedulerUL.queue.updateSize(self.PRBs)
+
+
+class SliceDeepMimo(Slice):
+    """
+        This class has Slice relative parameters with extra atributes for DeepMimo support. 
+        Is used to implement the mapping between service requirements and slice configuration.
+    """
+    def __init__(self,dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,tdd,sch):
+
+        super(SliceDeepMimo, self).__init__(dly,thDL,thUL,avl,cnxDL,cnxUL,ba,dm,mmd,ly,lbl,tdd,sch)
+
+        self.PRBs = 0
+        """ Cant of real PRBs assigned to the slice (not the base PRBs). """
+
+        self.assigned_base_prbs = []
+        """ List of base PRBs index assigned to the slice. """
+    
+    def createSliceSched(self, dir, tddSymb):
+        """
+            This method initializes and returns slice UL or DL scheduler for DeepMimo support. 
+            Scheduler algorithm is selected according to the Slice attribute schType.
+        """
+
+        scheduler = None
+
+        if self.tdd:
+            raise Exception("There is no TDD scheduler avaiable for DeepMimo scenarios.")
+
+        else:  # FDD Schedulers
+            if self.schType[0:2] == 'DF':  # Default
+                scheduler = IntraSliceSchedulerDeepMimo(
+                    self.band, self.PRBs, self.dm, self.signLoad, self.ttiBms, self.mimoMd, self.layers,
+                    dir, 14, self.robustMCS, self.label, self.schType, self
+                )
+            elif self.schType[0:3] == 'NUM':
+                scheduler = NUM_Scheduler(
+                    self.band, self.PRBs, self.dm, self.signLoad, self.ttiBms, self.mimoMd, self.layers,
+                    dir, 14, self.robustMCS, self.label, self.schType, self
+                )
+            else:
+                raise Exception(f"IntraSliceScheduler type {self.schType} doesn't exist")
+
+        return scheduler
+    
+    def updateConfig(self, assigned_base_prb_list):
+        """
+            This method updates Slice allocated PRBs.
+        """
+        self.assigned_base_prbs = assigned_base_prb_list
+        self.PRBs = int(len(assigned_base_prb_list)/self.ttiBms)
+        self.schedulerDL.nrbUEmax = self.PRBs
+

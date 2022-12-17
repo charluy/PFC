@@ -4,17 +4,32 @@ Simulation, cell and traffic profile parameters can be set here.
 import os
 import sys
 import simpy
+import json
 from UE import *
 from Cell import *
 from Results import *
+from utilities import Format
 
 #------------------------------------------------------------------------------------------------------
 #              Cell & Simulation parameters
 #------------------------------------------------------------------------------------------------------
 
-bw = [10]# MHz (FR1: 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 90, 100; FR2: 50, 100, 200, 400)
+# scenario_dir = "scenarios/I2_28B/"
+
+# general_config = json.load(open(scenario_dir + 'config.json'))
+# bandwidth = general_config["bandwidth"]
+# center_freq = general_config["frecuency"]
+# is_dynamic = general_config["is_dynamic"]
+# scene_duration = general_config["refresh_rate"]
+# t_sim_file = general_config["sim_duration"]
+
+# t_sim_default = 60000 # (ms)
+# t_sim = t_sim_file if is_dynamic else t_sim_default
+# """Simulation duration in milliseconds."""
+
+bw = [10] # MHz (FR1: 5, 10, 15, 20, 25, 30, 40, 50, 60, 80, 90, 100; FR2: 50, 100, 200, 400)
 """List containing each CC's bandwidth for the simulation. """
-fr = 'FR1' # FR1 or FR2
+fr = 'FR1'
 """String with frequency range (FR) to use. 'FR1' for FR1, or 'FR2' for FR2."""
 band = 'B1'
 """String with used band for simulation. In TDD mode it is important to set correctly a band from the next list: n257, n258, n260, n261."""
@@ -27,8 +42,10 @@ schedulerInter = 'PF11'# RRp for improved Round Robin, PFXX for Proportional Fai
 If the simulation includes more than one slice, set '' for Round Robin, 'RRp' for Round Robin Plus,
 or 'PFXY' for Proportional Fair with X=numExp and Y=denExp."""
 #                   Simulation parameters
-t_sim = 60000 # (ms)
+
+t_sim = 20000 # (ms)
 """Simulation duration in milliseconds."""
+
 debMode = True # to show queues information by TTI during simulation
 """Boolean indicating if debugging mode is active. In that case, an html log file will be generated with schedulers operation.
 Note that in simulations with a high number of UEs this file can turn quite heavy."""
@@ -56,16 +73,19 @@ interSliceSche1 = cell1.interSliceSched
 #UEgroup1 = UEgroup(0,5,0,150,0,60,'m-MTC-2',10,'','RR','',1,cell1,t_sim,measInterv,env,'D37')
 #UEgroup1 = UEgroup(0,4,0,2000,0,5000,'eMBB-1',20,'','','',1,cell1,t_sim,measInterv,env,'S25')
 #UEgroup2 = UEgroup(0,15,0,350,0,10,'eMBB-2',20,'','PF11','',1,cell1,t_sim,measInterv,env,'S20')
-UEgroup2 = UEgroup(0,10,0,350,0,6000,'mMTC-1',20,'','RR','',1,cell1,t_sim,measInterv,env,'S5')
+# UEgroup2 = UEgroup(0,10,0,350,0,6000,'mMTC-1',20,'','RR','',1,cell1,t_sim,measInterv,env,'S5')
 #UEgroup3 = UEgroup(0,8,0,1500,0,6,'URLLC-1',5,'','PF11','',1,cell1,t_sim,measInterv,env,'S25')
-# UEgroup1 = UEgroup(3,0,10000,0,2,0,'LTE',20,'','RR','',1,cell1,t_sim,measInterv,env,'S37')
-UEgroup1 = UEgroup(3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,'S37')
+#UEgroup1 = UEgroup(3,0,10000,0,2,0,'LTE',20,'','RR','',1,cell1,t_sim,measInterv,env,'S37')
+# UEgroup1 = UEgroup(3,0,50000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,'S37')
+
+UEgroup0 = UEgroup(3,0,5000,0,1,0,'eMBB',20,'','','SU',4,cell1,t_sim,measInterv,env,'S37')
+
 """Group of users with defined traffic profile, capabilities and service requirements for which the sumulation will run.
 
 More than one can be instantiated in one simulation.
 For each one of them, the UEgroup instance must be added in the UEgroups list.
 
-UEgroupN = UEgroup(nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mimo_mode,layers,cell,hdr,t_sim,measInterv,env,sinr):
+UEgroupN = UEgroup(UEg_dir,nuDL,nuUL,pszDL,pszUL,parrDL,parrUL,label,dly,avlty,schedulerType,mimo_mode,layers,cell,hdr,t_sim,measInterv,env,is_dynamic,scene_duration):
 
 label: must contain substring according to the type of service: eMBB, mMTC, URLLC\n
 schedulerType: RR: Rounf Robin, PF: Proportional Fair (10, 11)\n
@@ -76,22 +96,15 @@ sinr: is a string starting starting with S if all ues have the same sinr or D if
 #UEgroup2 = UEgroup(3,3,800000,300,1,10,'eMBB-1',10,'','RR','',1,cell1,t_sim,measInterv,env,'D37')
 
 # Set UEgroups list according to the defined groups!!!
-UEgroups = [UEgroup1,UEgroup2]#,UEgroup3]#,UEgroup4]
+UEgroups = [UEgroup0]#,UEgroup2]#,UEgroup3]#,UEgroup4]
 """UE group list for the configured simulation"""
 #           Slices creation
 for ueG in UEgroups:
-    interSliceSche1.createSlice(ueG.req['reqDelay'],
-    ueG.req['reqThroughputDL'],
-    ueG.req['reqThroughputUL'],
-    ueG.req['reqAvailability'],
-    ueG.num_usersDL,
-    ueG.num_usersUL,
-    band,
-    debMode,
-    ueG.mmMd,
-    ueG.lyrs,
-    ueG.label,
-    ueG.sch)
+    interSliceSche1.createSlice(
+        ueG.req['reqDelay'], ueG.req['reqThroughputDL'], ueG.req['reqThroughputUL'],
+        ueG.req['reqAvailability'], ueG.num_usersDL, ueG.num_usersUL, band, debMode,
+        ueG.mmMd, ueG.lyrs, ueG.label, ueG.sch
+    )
 
 #      Schedulers activation (inter/intra)
 

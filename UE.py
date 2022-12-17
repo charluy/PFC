@@ -1,254 +1,450 @@
-""" This module contains the UE, Packet Flow, Packet, PcktQueue, Bearer and RadioLink clases.
-This clases are oriented to describe UE traffic profile, and UE relative concepts
 """
-import os
-import sys
-import random
-import simpy
+	This module contains the UE, Packet Flow, Packet, PcktQueue, Bearer and RadioLink clases.
+	This clases are oriented to describe UE traffic profile, and UE relative concepts
+"""
+
 from collections import deque
+import numpy as np
+from regex import F
+from Results import (
+	printResults, getKPIs, makePlotsIntra, getKPIsInter, makePlotsInter
+)
+from utilities import (
+    initialSinrGenerator, Format
+)
+from channel import (
+    RadioLink, RadioLinkDeepMimo
+)
+from packet import (
+    PacketFlow, Bearer
+)
+
+DEEPMIMO_DATAFILE_PREFIX = 'Data_'
+DEEPMIMO_DATAFILE_SUFFIX = '.npz'
+DEEPMIMO_DATAFILE_ARR_NAME_SNR = 'SNR'
+DEEPMIMO_DATAFILE_ARR_NAME_RANK = 'rank'
+DEEPMIMO_DATAFILE_ARR_NAME_DEGREE = 'DoA'
+
+
+class UeGroupBase:
+    """
+        This class is used to describe traffic profile and requirements of group of UE which
+        the simulation will run for. It is assumed that all UEs shares the same traffic profile
+        and service requirements, and will be served by the same slice.
+    """
+    def __init__(
+        self, nuDL, nuUL, pszDL, pszUL, parrDL, parrUL, label, dly, avlty, schedulerType, mmMd,
+        lyrs, cell, t_sim, measInterv, env
+    ):
+        self.num_usersDL = nuDL
+        self.num_usersUL = nuUL
+        self.p_sizeDL = pszDL
+        self.p_sizeUL = pszUL
+        self.p_arr_rateDL = parrDL
+        self.p_arr_rateUL = parrUL
+        self.sinr_0DL = 0
+        """Initial sinr value for DL"""
+        self.sinr_0UL = 0
+        """Initial sinr value for UL"""
+        self.sch = schedulerType
+        """Intra Slice scheduler algorithm"""
+        self.label = label
+        """Slice label"""
+        self.req = {}
+        """Dictionary with services requirements"""
+        self.mmMd = mmMd
+        self.lyrs = lyrs
+        self.gr = cell.interSliceSched.granularity
+        """Inter Slice scheduler time granularity"""
+        self.mgr = measInterv
+        """Meassurement time granularity"""
+        self.setReq(dly,avlty)
+        self.schIn = cell.sch
+    
+    def setReq(self,delay,avl):
+        """
+            This method sets the service requirements depending on the UE group traffic profile and required delay
+        """
+        self.req['reqDelay'] = delay
+        self.req['reqThroughputDL'] = 8*self.p_sizeDL*self.p_arr_rateDL
+        self.req['reqThroughputUL'] = 8*self.p_sizeUL*self.p_arr_rateUL
+        self.req['reqAvailability'] = avl
+    
+    def initializeUEs(
+        self, dir, num_users, p_size, p_arr_rate, sinr_0, cell, t_sim, measInterv, env
+    ):
+        """
+            This method creates the UEs with its traffic flows, and initializes the asociated PEM methods
+        """
+        users = []
+        flows = []
+
+        for j in range (num_users):
+            ue_name = 'ue' + str(j+1)
+            users.append(UE(ue_name,float(sinr_0[j])))
+            flows.append(PacketFlow(1,p_size,p_arr_rate,ue_name,dir,self.label))
+            users[j].addPacketFlow(flows[j])
+            users[j].packetFlows[0].setQosFId(1)
+            # Flow, UE and RL PEM activation
+            env.process(users[j].packetFlows[0].queueAppPckt(env,tSim=t_sim))
+            env.process(users[j].receivePckt(env,c=cell))
+
+        return users,flows
+    
+    def activateSliceScheds(self,interSliceSche,env):
+        """
+            This method activates PEM methods from the intra Slice schedulers.
+        """
+        if self.num_usersDL>0:
+            procSchDL = env.process(interSliceSche.slices[self.label].schedulerDL.queuesOut(env))
+        if self.num_usersUL>0:
+            procSchUL = env.process(interSliceSche.slices[self.label].schedulerUL.queuesOut(env))
+
+    def printSliceResults(self,interSliceSche,t_sim,bw,measInterv):
+        """
+            This method prints main simulation results on the terminal, gets the considered kpi 
+            from the statistic files, and builds kpi plots.
+        """
+        if self.num_usersDL>0:
+            printResults('DL',self.usersDL,self.num_usersDL,interSliceSche.slices[self.label].schedulerDL,t_sim,True,False,self.sinr_0DL)
+            # print('Configured Signalling Load: '+str(interSliceSche.slices[self.label].signLoad))
+            # print('Using Robust MCS: '+str(interSliceSche.slices[self.label].robustMCS))
+            [SINR_DL,times_DL,mcs_DL,rU_DL,plr_DL,th_DL] = getKPIs('DL','Statistics/dlStsts'+'_'+self.label+'.txt',self.usersDL,self.num_usersDL,self.sinr_0DL,measInterv,t_sim)
+            makePlotsIntra('DL',times_DL,SINR_DL,mcs_DL,rU_DL,plr_DL,th_DL,self.label,bw,self.sch,self.mgr)
+            [times_DL,rU_DL,plr_DL,th_DL,cnx_DL,buf_DL,met] = getKPIsInter('DL','Statistics/dlStsts_InterSlice.txt',list(interSliceSche.slices.keys()),len(list(interSliceSche.slices.keys())))
+            makePlotsInter('DL',times_DL,rU_DL,plr_DL,th_DL,cnx_DL,buf_DL,met,bw,self.schIn,self.gr)
+
+        if self.num_usersUL>0:
+            printResults('UL',self.usersUL,self.num_usersUL,interSliceSche.slices[self.label].schedulerUL,t_sim,True,False,self.sinr_0UL)
+            # print('Configured Signalling Load: '+str(interSliceSche.slices[self.label].signLoad))
+            # print('Using Robust MCS: '+str(interSliceSche.slices[self.label].robustMCS))
+            [SINR_UL,times_UL,mcs_UL,rU_UL,plr_UL,th_UL] = getKPIs('UL','Statistics/ulStsts'+'_'+self.label+'.txt',self.usersUL,self.num_usersUL,self.sinr_0UL,measInterv,t_sim)
+            makePlotsIntra('UL',times_UL,SINR_UL,mcs_UL,rU_UL,plr_UL,th_UL,self.label,bw,self.sch,self.mgr)
+            [times_UL,rU_UL,plr_UL,th_UL,cnx_UL,buf_UL,met] = getKPIsInter('UL','Statistics/ulStsts_InterSlice.txt',list(interSliceSche.slices.keys()),len(list(interSliceSche.slices.keys())))
+            makePlotsInter('UL',times_UL,rU_UL,plr_UL,th_UL,cnx_UL,buf_UL,met,bw,self.schIn,self.gr)
+
+
+class UEgroup(UeGroupBase):
+    """
+        Extends UeGroupBase class for simple UE definition
+    """
+    
+    def __init__(
+        self, nuDL, nuUL, pszDL, pszUL, parrDL, parrUL, label, dly, avlty, schedulerType, mmMd,
+        lyrs, cell, t_sim, measInterv, env, sinr='S40'
+    ):
+        super(UEgroup, self).__init__(
+            nuDL, nuUL, pszDL, pszUL, parrDL, parrUL, label, dly, avlty, schedulerType, mmMd, lyrs,
+            cell, t_sim, measInterv, env
+        )
+
+        self.setInitialSINR(sinr)
+
+        if self.num_usersDL > 0:
+            self.usersDL, self.flowsDL = self.initializeUEs(
+                'DL', self.num_usersDL, self.p_sizeDL, self.p_arr_rateDL, self.sinr_0DL, cell, t_sim,measInterv, env
+            )
+        if self.num_usersUL > 0:
+            self.usersUL, self.flowsUL = self.initializeUEs(
+                'UL', self.num_usersUL, self.p_sizeUL, self.p_arr_rateUL, self.sinr_0UL, cell, t_sim, measInterv, env
+            )
+
+    def setInitialSINR(self,sinr):
+        """
+            This method generates SINR values from string.
+            Example: 'S40' to indicate static value of 40db.
+        """
+        if self.num_usersDL>0:
+            self.sinr_0DL = initialSinrGenerator(self.num_usersDL,sinr)
+        if self.num_usersUL>0:
+            self.sinr_0UL = initialSinrGenerator(self.num_usersUL,sinr)
+    
+    def initializeUEs(
+        self, dir, num_users, p_size, p_arr_rate, sinr_0, cell, t_sim, measInterv, env
+    ):
+        """
+            Each UE radio link quality is updated in a separate PEM process.
+        """
+        users, flows = super(UEgroup, self).initializeUEs(
+            dir, num_users, p_size, p_arr_rate, sinr_0, cell, t_sim, measInterv, env
+        )
+        for user in users:
+            env.process(
+                user.radioLinks.updateLQ(env,udIntrv=measInterv,tSim=t_sim,fl=False,u=num_users,r='')
+            )
+
+        return users, flows
+
+
+class UeGroupDeepMimo(UeGroupBase):
+    def __init__(
+        self, nuDL, nuUL, pszDL, pszUL, parrDL, parrUL, label, dly, avlty, schedulerType, mmMd, lyrs,
+        cell, t_sim, measInterv, env, ueg_dir, is_dynamic, scene_duration
+    ):
+        super(UeGroupDeepMimo, self).__init__(
+            nuDL, nuUL, pszDL, pszUL, parrDL, parrUL, label, dly, avlty, schedulerType, mmMd, lyrs,
+            cell, t_sim, measInterv, env
+        )
+        self.ue_group_dir = ueg_dir.strip('/')
+        self.current_scene = 0
+        self.is_dynamic = is_dynamic
+        self.scene_duration = scene_duration
+
+        self.setInitialSINR()
+
+        if self.num_usersDL>0:
+            self.usersDL, self.flowsDL = self.initializeUEs(
+				'DL', self.num_usersDL, self.p_sizeDL, self.p_arr_rateDL, cell,
+				t_sim, measInterv, env
+			)
+        if self.num_usersUL>0:
+            self.usersUL, self.flowsUL = self.initializeUEs(
+				'UL', self.num_usersUL, self.p_sizeUL, self.p_arr_rateUL, cell,
+				t_sim, measInterv, env
+			)
+    
+    def setInitialSINR(self):
+        """
+            This method is only used to set self.sinr_0DL and self.sinr_0UL as single value
+            for compatibility reasons.
+        """
+        if self.num_usersDL>0:
+            initial_snr_dl, _, _ = self.read_ues_channel_status(self.num_usersDL)
+            self.sinr_0DL = [np.mean(initial_snr_dl[ue,:]) for ue in range(0,self.num_usersDL)]
+
+        if self.num_usersUL>0:
+            initial_snr_ul, _, _ = self.read_ues_channel_status(self.num_usersUL)
+            self.sinr_0UL = [np.mean(initial_snr_ul[ue,:]) for ue in range(0,self.num_usersUL)]
+
+    def initializeUEs(
+        self, dir, num_users, p_size, p_arr_rate, cell, t_sim, measInterv, env
+    ):
+        """
+            This method creates the UEs with its traffic flows, and initializes the asociated PEM methods
+        """
+        users = []
+        flows = []
+
+        cant_ue_to_read = self.num_usersDL if dir == 'DL' else self.num_usersUL
+        initial_snrs, initial_ranks, initial_degrees = self.read_ues_channel_status(cant_ue_to_read)
+
+        for j in range (num_users):
+            ue_name = 'ue' + str(j+1)
+            users.append(UeDeepMimo(ue_name, initial_snrs[j,:], initial_ranks[j,:], initial_degrees[j,:]))
+            flows.append(PacketFlow(1,p_size,p_arr_rate,ue_name,dir,self.label))
+            users[j].addPacketFlow(flows[j])
+            users[j].packetFlows[0].setQosFId(1)
+            # Flow, UE and RL PEM activation
+            env.process(users[j].packetFlows[0].queueAppPckt(env,tSim=t_sim))
+            env.process(users[j].receivePckt(env,c=cell))
+        
+        if self.is_dynamic:
+            env.process(self.pem_update_ue_group_rl(env, t_sim))
+
+        return users,flows
+    
+    def read_ues_channel_status(self, cant_ue, time=0):
+        """
+            This method returns a list containing SINRs of UEgroup at moment=time
+        """
+        file_name = DEEPMIMO_DATAFILE_PREFIX + str(time) + DEEPMIMO_DATAFILE_SUFFIX
+        file_path = self.ue_group_dir + '/' + file_name
+        ueg_channel_status = np.load(file_path)
+
+        snrs = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_SNR][0:cant_ue,:]
+        ranks = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_RANK][0:cant_ue,:]
+        degrees = ueg_channel_status[DEEPMIMO_DATAFILE_ARR_NAME_DEGREE][0:cant_ue,:]
+
+        return snrs, ranks, degrees
+    
+    def pem_update_ue_group_rl(self, env, tSim):
+        """
+            This PEM method updates all UE's radio link quality in the group
+        """
+        while env.now<(tSim*0.83):
+            yield env.timeout(self.scene_duration)
+            self.update_ue_group_rl()
+            self.current_scene += 1
+    
+    def update_ue_group_rl(self):
+        """
+            This methods read DeepMIMO channel status files and update each UE radio link 
+            quality.
+        """
+
+        cant_users = max(self.num_usersDL, self.num_usersUL)
+        snrs, ranks, degrees = self.read_ues_channel_status(cant_ue=cant_users, time=self.current_scene)
+
+        if self.num_usersDL > 0:
+            for i, usr in enumerate(self.usersDL):
+                usr.radioLinks.update_link_status(snrs[i,:], ranks[i,:], degrees[i,:])
+
+        if self.num_usersUL > 0:
+            for i, usr in enumerate(self.usersUL):
+                usr.radioLinks.update_link_status(snrs[i,:], ranks[i,:], degrees[i,:])
+
 
 # UE class: terminal description
 
-class UE():
-	""" This class is used to model UE behabiour and relative properties """
-	def __init__(self, i,ue_sinr0,p,npM):
-		self.id = i
-		self.state = 'RRC-IDLE'
-		self.packetFlows = []
-		self.bearers = []
-		self.radioLinks = RadioLink(1,ue_sinr0,self.id)
-		self.TBid = 1
-		self.pendingPckts = {}
-		self.prbs = p
-		self.resUse = 0
-		self.pendingTB = []
-		self.bler = 0
-		self.tbsz = 1
-		self.MCS = 0
-		self.pfFactor = 1 # PF Scheduler
-		self.pastTbsz = deque([1]) # PF Scheduler
-		self.lastDen = 0.001 # PF Scheduler
-		self.num = 0 # PF Scheduler
-		self.BWPs = npM
-		self.TXedTB = 1
-		self.lostTB = 0
-		self.symb = 0
+class UeBase:
+    """
+        This class is used to model UE behabiour and relative properties
+    """
+    def __init__(self, id):
+        self.id = id
+        self.state = 'RRC-IDLE'
+        self.packetFlows = []
+        self.bearers = []
 
-	def addPacketFlow(self,pckFl):
-		self.packetFlows.append(pckFl)
+        self.TBid = 1
+        self.pendingPckts = {}
 
-	def addBearer(self,br):
-		self.bearers.append(br)
+        self.resUse = 0
+        self.pendingTB = []
+        self.bler = 0
+        self.tbsz = 1
+        self.MCS = 0
+        self.pfFactor = 1 # PF Scheduler
+        self.pastTbsz = deque([1]) # PF Scheduler
+        self.lastDen = 0.001 # PF Scheduler
+        self.num = 0 # PF Scheduler
 
-	def receivePckt(self,env,c): # PEM -------------------------------------------
-		"""This method takes packets on the application buffers and leave them on the bearer buffers. This is a PEM method."""
-		while True:
-			if len(self.packetFlows[0].appBuff.pckts)>0:
-				if self.state == 'RRC-IDLE': # Not connected
-					self.connect(c)
-					nextPackTime = c.tUdQueue
-					yield env.timeout(nextPackTime)
-					if nextPackTime > c.inactTimer:
-						self.releaseConnection(c)
-				else: # Already connecter user
-					self.queueDataPckt(c)
-					nextPackTime = c.tUdQueue
-					yield env.timeout(nextPackTime)
-					if nextPackTime > c.inactTimer:
-						self.releaseConnection(c)
-			else:
-				nextPackTime = c.tUdQueue
-				yield env.timeout(nextPackTime)
+        self.TXedTB = 1
+        self.lostTB = 0
+        self.symb = 0
 
-	def connect(self,cl):
-		"""This method creates bearers and bearers buffers."""
-		bD = Bearer(1,9,self.packetFlows[0].type)
-		self.addBearer(bD)
-		self.queueDataPckt(cl)
-		if self.packetFlows[0].type == 'DL':
-			if (list(cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues.keys()).count(self.id))<1:
-				cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues[self.id] = self
-		else:
-			if (list(cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues.keys()).count(self.id))<1:
-				cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues[self.id] = self
-		self.state = 'RRC-CONNECTED'
+        self.prbs = 0
+        self.BWPs = 20
+    
+    def addPacketFlow(self, pckFl):
+        self.packetFlows.append(pckFl)
 
+    def addBearer(self, br):
+        self.bearers.append(br)
+    
+    def receivePckt(self,env,c): # PEM -------------------------------------------
+        """
+            This method takes packets on the application buffers and leave them on the bearer buffers.
+            This is a PEM method.
+        """
+        while True:
+            if len(self.packetFlows[0].appBuff.pckts)>0:
+                if self.state == 'RRC-IDLE': # Not connected
+                    self.connect(c)
+                    nextPackTime = c.tUdQueue
+                    yield env.timeout(nextPackTime)
+                    if nextPackTime > c.inactTimer:
+                        self.releaseConnection(c)
+                else: # Already connecter user
+                    self.queueDataPckt(c)
+                    nextPackTime = c.tUdQueue
+                    yield env.timeout(nextPackTime)
+                    if nextPackTime > c.inactTimer:
+                        self.releaseConnection(c)
+            else:
+                nextPackTime = c.tUdQueue
+                yield env.timeout(nextPackTime)
+    
+    def connect(self,cl):
+        """
+            This method creates bearers and bearers buffers.
+        """
+        bD = Bearer(1,9,self.packetFlows[0].type)
+        self.addBearer(bD)
+        self.queueDataPckt(cl)
+        if self.packetFlows[0].type == 'DL':
+            if (list(cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues.keys()).count(self.id))<1:
+                cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues[self.id] = self
+        else:
+            if (list(cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues.keys()).count(self.id))<1:
+                cl.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues[self.id] = self
+        self.state = 'RRC-CONNECTED'
+    
+    def queueDataPckt(self,cell):
+        """
+            This method queues the packets taken from the application buffer in the bearer buffers.
+        """
+        pD = self.packetFlows[0].appBuff.removePckt()
+        buffSizeAllUEs = 0
+        buffSizeThisUE = 0
+        if self.packetFlows[0].type == 'DL':
+            for ue in list(cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues.keys()):
+                buffSizeUE = 0
+                for p in cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues[ue].bearers[0].buffer.pckts:
+                    buffSizeUE = buffSizeUE + p.size
+                if self.id == ue:
+                    buffSizeThisUE = buffSizeUE
+                buffSizeAllUEs = buffSizeAllUEs + buffSizeUE
+        else:
+            for ue in list(cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues.keys()):
+                buffSizeUE = 0
+                for p in cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues[ue].bearers[0].buffer.pckts:
+                    buffSizeUE = buffSizeUE + p.size
+                if self.id == ue:
+                    buffSizeThisUE = buffSizeUE
+                buffSizeAllUEs = buffSizeAllUEs + buffSizeUE
 
-	def queueDataPckt(self,cell):
-		"""This method queues the packets taken from the application buffer in the bearer buffers."""
-		pD = self.packetFlows[0].appBuff.removePckt()
-		buffSizeAllUEs = 0
-		buffSizeThisUE = 0
-		if self.packetFlows[0].type == 'DL':
-			for ue in list(cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues.keys()):
-				buffSizeUE = 0
-				for p in cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.ues[ue].bearers[0].buffer.pckts:
-					buffSizeUE = buffSizeUE + p.size
-				if self.id == ue:
-					buffSizeThisUE = buffSizeUE
-				buffSizeAllUEs = buffSizeAllUEs + buffSizeUE
-		else:
-			for ue in list(cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues.keys()):
-				buffSizeUE = 0
-				for p in cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.ues[ue].bearers[0].buffer.pckts:
-					buffSizeUE = buffSizeUE + p.size
-				if self.id == ue:
-					buffSizeThisUE = buffSizeUE
-				buffSizeAllUEs = buffSizeAllUEs + buffSizeUE
-
-		if buffSizeThisUE<cell.maxBuffUE:#len(self.bearers[1].buffer.pckts)<cell.maxBuffUE:
-			self.bearers[0].buffer.insertPckt(pD)
-		else:
-			pcktN = pD.secNum
-			#print (Format.CRED+Format.CBOLD+self.id,'packet ',pcktN,' lost .....',str(pD.tIn)+Format.CEND)
-			if self.packetFlows[0].type == 'DL':
-				cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.printDebDataDM('<p style="color:red"><b>'+str(self.id)+' packet '+str(pcktN)+' lost .....'+str(pD.tIn)+'</b></p>')
-			else:
-				cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.printDebDataDM('<p style="color:red"><b>'+str(self.id)+' packet '+str(pcktN)+' lost .....'+str(pD.tIn)+'</b></p>')
-			self.packetFlows[0].lostPackets = self.packetFlows[0].lostPackets + 1
-
-	def releaseConnection(self,cl):
-		self.state = 'RRC-IDLE'
-		self.bearers = []
-
-# ------------------------------------------------
-# PacketFlow class: PacketFlow description
-class PacketFlow():
-	""" This class is used to describe UE traffic profile for the simulation."""
-	def __init__(self,i,pckSize,pckArrRate,u,tp,slc):
-		self.id = i
-		self.tMed = 0
-		self.sMed = 0
-		self.type = tp
-		self.sliceName = slc
-		self.pckArrivalRate = pckArrRate
-		self.qosFlowId = 0
-		self.packetSize = pckSize
-		self.ue = u
-		self.sMax = (float(self.packetSize)/350)*600
-		self.tMax = (float(self.pckArrivalRate)/6)*12.5
-		self.tStart = 0
-		self.appBuff = PcktQueue()
-		self.lostPackets = 0
-		self.sentPackets = 0
-		self.rcvdBytes = 0
-		self.pId = 1
-		self.header = 30
-		self.meassuredKPI = {'Throughput':0,'Delay':0,'PacketLossRate':0}
+        if buffSizeThisUE<cell.maxBuffUE:#len(self.bearers[1].buffer.pckts)<cell.maxBuffUE:
+            self.bearers[0].buffer.insertPckt(pD)
+        else:
+            pcktN = pD.secNum
+            #print (Format.CRED+Format.CBOLD+self.id,'packet ',pcktN,' lost .....',str(pD.tIn)+Format.CEND)
+            if self.packetFlows[0].type == 'DL':
+                cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerDL.printDebDataDM('<p style="color:red"><b>'+str(self.id)+' packet '+str(pcktN)+' lost .....'+str(pD.tIn)+'</b></p>')
+            else:
+                cell.interSliceSched.slices[self.packetFlows[0].sliceName].schedulerUL.printDebDataDM('<p style="color:red"><b>'+str(self.id)+' packet '+str(pcktN)+' lost .....'+str(pD.tIn)+'</b></p>')
+            self.packetFlows[0].lostPackets = self.packetFlows[0].lostPackets + 1
+    
+    def releaseConnection(self,cl):
+        self.state = 'RRC-IDLE'
+        self.bearers = []
 
 
-	def setQosFId(self,q):
-		qosFlowId = q
+class UE(UeBase):
+    """
+        This class is used to model UE behabiour and relative properties
+        for a simplified version of channel model.
+    """
+    def __init__(self, id, ue_initial_sinr):
+        super(UE, self).__init__(id)
+        self.radioLinks = RadioLink(1, ue_initial_sinr, self.id)
 
-	def queueAppPckt(self,env,tSim): # --- PEM -----
-		"""This method creates packets according to the packet flow traffic profile and stores them in the application buffer. """
-		ueN = int(self.ue[2:]) # number of UEs in simulation
-		self.tStart = (random.expovariate(1.0))
-		yield env.timeout(self.tStart) 	 # each UE start transmission after tStart
-		while env.now<(tSim*0.83):
-			self.sentPackets = self.sentPackets + 1
-			size = self.getPsize()
-			pD = Packet(self.pId,size+self.header,self.qosFlowId,self.ue)
-			self.pId = self.pId + 1
-			pD.tIn = env.now
-			self.appBuff.insertPckt(pD)
-			nextPackTime = self.getParrRate()
-			yield env.timeout(nextPackTime)
 
-	def getPsize(self):
-		pSize = random.paretovariate(1.2)*(self.packetSize*(0.2/1.2))
-		while pSize > self.sMax:
-			pSize = random.paretovariate(1.2)*(self.packetSize*(0.2/1.2))
-		self.sMed = self.sMed + pSize
-		return pSize
+class UeDeepMimo(UeBase):
+    """
+        This class is used to model UE behabiour and relative properties
+        for a complex version of channel model given by DeepMIMO framework.
+    """
+    def __init__(self, id, ue_initial_sinr, ue_initial_rank, ue_initial_degree):
+        super(UeDeepMimo, self).__init__(id)
+        self.radioLinks = RadioLinkDeepMimo(self)
+        self.update_radio_link_status(ue_initial_sinr, ue_initial_rank, ue_initial_degree)
+        self.assigned_base_prbs = []
+        self.assigned_layers = 0
+    
+    def update_radio_link_status(self, snr, rank, degree):
+        self.radioLinks.update_link_status(snr, rank, degree)
+    
+    def has_packet_in_bearer(self):
+        return self.bearers[0].has_packets()
 
-	def getParrRate(self):
-		pArrRate = random.paretovariate(1.2)*(self.pckArrivalRate*(0.2/1.2))
-		while pArrRate > self.tMax:
-			pArrRate = random.paretovariate(1.2)*(self.pckArrivalRate*(0.2/1.2))
-		self.tMed = self.tMed + pArrRate
-		return pArrRate
+    def add_resources(self, base_prbs_list, layers, cant_prbs):
+        
+        # Add base prbs to the list of assigned ones:
+        if isinstance(base_prbs_list, int):
+            self.assigned_base_prbs.append(base_prbs_list)
+        elif isinstance(base_prbs_list, list):
+            self.assigned_base_prbs += base_prbs_list
+        else:
+            raise Exception("Assigned PRB must be a list of integer or a integer")
+        
+        # Keep the smallest layer value:
+        if self.assigned_layers == 0:
+            self.assigned_layers = layers
+        else:
+            self.assigned_layers = min(self.assigned_layers, layers)
+        
+        # Track of the number of assigned prbs:
+        self.prbs += cant_prbs
 
-	def setMeassures(self,tsim):
-		"""This method calculates average PLR and throughput for the simulation."""
-		self.meassuredKPI['PacketLossRate'] = float(100*self.lostPackets)/self.sentPackets
-		if tsim>1000:
-			self.meassuredKPI['Throughput'] = (float(self.rcvdBytes)*8000)/(0.83*tsim*1024*1024)
-		else:
-			self.meassuredKPI['Throughput'] = 0
 
-class Packet:
-	"""This class is used to model packets properties and behabiour."""
-	def __init__(self,sn,s,qfi,u):
-		self.secNum = sn
-		self.size = s
-		self.qosFlowId = qfi
-		self.ue = u
-		self.tIn = 0
-
-	def printPacket(self):
-		print (Format.CYELLOW + Format.CBOLD + self.ue+ '+packet '+str(self.secNum)+' arrives at t ='+str(now()) + Format.CEND)
-
-class Bearer:
-	"""This class is used to model Bearers properties and behabiour."""
-	def __init__(self,i,q,tp):
-		self.id = i
-		self.qci = q
-		self.type = tp
-		self.buffer = PcktQueue()
-
-class PcktQueue:
-	"""This class is used to model application and bearer buffers."""
-	def __init__(self):
-		self.pckts = deque([])
-
-	def insertPckt(self,p):
-		self.pckts.append(p)
-
-	def insertPcktLeft(self,p):
-		self.pckts.appendleft(p)
-
-	def removePckt(self):
-		if len(self.pckts)>0:
-			return self.pckts.popleft()
-
-class RadioLink():
-	"""This class is used to model radio link properties and behabiour."""
-	def __init__(self,i,lq_0,u):
-		self.id = i
-		state = 'ON'
-		self.linkQuality = lq_0
-		self.ue = u
-		self.totCount = 0
-		self.maxVar = 0.1
-
-	def updateLQ(self,env,udIntrv,tSim,fl,u,r):
-		"""This method updates UE link quality in terms of SINR during the simulation. This is a PEM method.
-
-		During the simulation it is assumed that UE SINR varies following a normal distribution with mean value equal to initial SINR value, and a small variance."""
-
-		while env.now<(tSim*0.83):
-			yield env.timeout(udIntrv)
-			deltaSINR = random.normalvariate(0, self.maxVar)
-			while deltaSINR > self.maxVar or deltaSINR<(0-self.maxVar):
-				deltaSINR = random.normalvariate(0, self.maxVar)
-			self.linkQuality = self.linkQuality + deltaSINR
-
-class Format:
-    CEND      = '\33[0m'
-    CBOLD     = '\33[1m'
-    CITALIC   = '\33[3m'
-    CURL      = '\33[4m'
-    CBLINK    = '\33[5m'
-    CBLINK2   = '\33[6m'
-    CSELECTED = '\33[7m'
-    CBLACK  = '\33[30m'
-    CRED    = '\33[31m'
-    CGREEN  = '\33[32m'
-    CYELLOW = '\33[33m'
-    CBLUE   = '\33[34m'
-    CVIOLET = '\33[35m'
-    CBEIGE  = '\33[36m'
-    CWHITE  = '\33[37m'
-    CGREENBG  = '\33[42m'
-    CBLUEBG   = '\33[44m'
