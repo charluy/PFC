@@ -203,7 +203,7 @@ La salida de la ejecución del *script* consiste principalmente de distintas gr�
 ### Algunos ejemplos
 
 **Grilla de asiganción de recursos dentro de la _Slice_**
-![](img/eMMB-cerca_DL_tti_5999_resource_grid.png)
+![](img/grilla.png)
 
 **SNR en la _Slice_**:
 ![](img/snr.png)
