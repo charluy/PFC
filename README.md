@@ -78,7 +78,8 @@ Con esta configuración la salida fue la siguiente:
 **Archivos**
 
 ```bash
-user@user-pc:~/Documents/code/PFC$ tree scenarios/example/
+user@user-pc:~/Py5cheSim2$ tree scenarios/example/
+
 scenarios/Escenario1/
 ├── config.json
 ├── UEgroup_0
@@ -151,6 +152,8 @@ Por otro lado, es necesario especificar algunos parámetros en la creación de l
 
 **Nota**: Los parámetros omitidos se obtienen en etapas previas.
 
+Si se desea desarrollar un nuevo *intra slice scheduler* este debe heredar de la clase `IntraSliceSchedulerDeepMimo` y sobre escribir los métodos necesarios, tal como lo hace la clase `NUM_Scheduler`. De igual manera, si se desea crear *inter slice scheduler*, este debe heredar de la clase `InterSliceSchedulerDeepMimo` y sobre escribir los métodos necesarios.
+
 ### Ejemplo de creación de grupo de usuarios:
 
 ```python
@@ -200,7 +203,7 @@ La salida de la ejecución del *script* consiste principalmente de distintas gr�
 ### Algunos ejemplos
 
 **Grilla de asiganción de recursos dentro de la _Slice_**
-![grilla](img/eMMB-cerca_DL_tti_5999_resource_grid.png)
+![](img/eMMB-cerca_DL_tti_5999_resource_grid.png)
 
 **SNR en la _Slice_**:
 ![](img/snr.png)
