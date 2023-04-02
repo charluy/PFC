@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Diego"
+  given-names: "Sánchez"
+- family-names: "Mateo"
+  given-names: "Trujillo"
+- family-names: "Paula"
+  given-names: "Varela"
+title: "Py5cheSim v2.0"
+version: 1.0.0
+date-released: 2022-12-20
+url: "https://github.com/charluy/PFC"
