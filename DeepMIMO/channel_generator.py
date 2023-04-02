@@ -27,7 +27,7 @@ center_freq = 28 # In GHz
 ue_separation = 0.01
 
 # Simulation parameters
-out_dir = "../scenarios/test_bug_fixes/" # Could be another scenario, so the path would be different
+out_dir = "../scenarios/I2_28B/" # Could be another scenario, so the path would be different
 bandwidth = 0.05 # In GHz
 cant_sc = round_up_sc_to_12_and_8(bandwidth)
 TX_power_sc = 6*(10**(-3))  # float(TX_power)/cant_sc
