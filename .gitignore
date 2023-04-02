@@ -16,3 +16,5 @@ __pycache__
 DeepMIMO/scenarios
 scenarios/
 scenarios/I2_28B/*
+
+env/
