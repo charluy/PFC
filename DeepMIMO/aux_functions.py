@@ -24,7 +24,6 @@ def create_ue_group_dict(UEgroups):
                 "cant_ue": UEgroup[1]+1 - UEgroup[0]
             }
         }
-        print(UEgroup_dict)
         ue_groups["ue_groups"].update(UEgroup_dict)
 
     return ue_groups
