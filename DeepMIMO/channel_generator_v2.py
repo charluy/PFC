@@ -94,7 +94,6 @@ with open(out_dir + "config.json", "w") as outfile:
 # Create PRBs associated to the subcarriers
 
 PRBs = [range(0, cant_sc)[i * 12:(i + 1) * 12] for i in range((cant_sc + 12 - 1) // 12 )]
-# print (PRBs)
 
 # Create UEgroups channel information files for each scene
 
@@ -124,7 +123,6 @@ for idUEg, UEg in enumerate(UEgroups):
         UEs.append(user)
 
     for scene in range(0, cant_scenes):
-        print("the scene is "  +  str(scene))
 
         for ue in UEs:
 
@@ -144,7 +142,6 @@ for idUEg, UEg in enumerate(UEgroups):
                 
 
                 SNR[UEs.index(ue)][PRBs.index(PRB)] = 10*np.log10(np.min(np.diagonal(pot_senal))/ (N_0 * BW_PRB))
-                print(SNR[UEs.index(ue)][PRBs.index(PRB)])
 
                 if (SNR[UEs.index(ue)][PRBs.index(PRB)] < 0):
                     SNR[UEs.index(ue)][PRBs.index(PRB)] = 0.5
